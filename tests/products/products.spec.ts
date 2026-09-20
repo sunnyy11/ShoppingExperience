@@ -56,12 +56,12 @@ test.describe('Automation Exercise products', () => {
       await page.goto('/');
       await expect(page).toHaveTitle(/Automation Exercise/i);
       await page.goto('/product_details/1');
-      await expect(page.locator('.product-information h2')).toBeVisible();
+      await expect(page.getByRole('heading', { name: PRODUCT_NAME, level: 2 })).toBeVisible();
     });
 
     const productName =
       await test.step('set the product quantity and add it to the cart', async () => {
-        const name = await page.locator('.product-information h2').innerText();
+        const name = await page.getByRole('heading', { name: PRODUCT_NAME, level: 2 }).innerText();
 
         await page.locator('#quantity').fill(QUANTITY);
         await page.getByRole('button', { name: 'Add to cart' }).click();
@@ -77,7 +77,7 @@ test.describe('Automation Exercise products', () => {
       const matchingProduct = cartProducts.find(p => p.name === productName);
       expect(matchingProduct).toBeDefined();
       const cartRow = page.locator('#cart_info_table tbody tr').filter({ hasText: productName });
-      await expect(cartRow.locator('.cart_quantity button')).toHaveText(QUANTITY);
+      await expect(cartRow.locator('td').nth(3).locator('button')).toHaveText(QUANTITY);
     });
   });
 });

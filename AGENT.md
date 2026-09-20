@@ -135,6 +135,8 @@ Priority order — stop at the first that fits:
 3. **Test id** — `getByTestId('cart-total')` (coordinate `data-testid` with devs; treat it as a real contract)
 4. **CSS scoped to a stable attribute** — last resort only, never styling classes
 
+**Examples — GOOD vs BAD:**
+
 ```ts
 // GOOD
 await page.getByRole('button', { name: 'Sign in' }).click();
@@ -144,6 +146,37 @@ await page.locator('//div[2]/form/input[1]').fill(user.email); // XPath
 await page.click('#app > div > div:nth-child(3) button');      // structural CSS
 ```
 
+5. **data-testid (or a custom test attribute)** — Still the strongest fallback. If the DOM has nothing addressable, this is the ask to raise with dev, not a locator workaround.
+   ```ts
+   page.getByTestId('cart-summary-total')
+   ```
+
+6. **Chain and filter instead of writing a longer selector** — Combine a loose locator with `.filter()` or `.and()` to narrow scope without hardcoding structure.
+   ```ts
+   await page.getByRole('listitem').filter({ hasText: 'Pro plan' }).getByRole('button')
+   await page.locator('.product-card').filter({ has: page.getByText('Out of stock') })
+   ```
+
+7. **`:has-text()` / `hasText` as a text-anchor when there's no role or label**
+   ```ts
+   await page.locator('.dropdown-item', { hasText: 'Settings' })
+   ```
+
+8. **Structural CSS or `nth()` — last resort, always commented why** — Only when nothing above resolves uniquely (e.g. a repeated row with no distinguishing text or attribute).
+   ```ts
+   await page.locator('table tbody tr').nth(2) // no unique id/text available in this grid — flag for a11y fix
+   ```
+
+9. **Frame and Shadow DOM cases**
+   ```ts
+   page.frameLocator('iframe[name="checkout"]').getByRole(...)
+   ```
+
+- **MUST NOT** use XPath, `nth-child` chains, hashed class names, or wording likely to change often.
+- Chain/filter for scope instead of long selectors: `.filter({ hasText: 'Pro plan' })`.
+- Store locators as Page Object properties, not copy-pasted across specs.
+- If a locator resolves to multiple elements unintentionally, scope it — don't hide ambiguity with `.first()`.
+   
 - **MUST NOT** use XPath, `nth-child` chains, hashed class names, or wording likely to change often.
 - Chain/filter for scope instead of long selectors: `.filter({ hasText: 'Pro plan' })`.
 - Store locators as Page Object properties, not copy-pasted across specs.

@@ -26,7 +26,7 @@ export class CartPage {
 
   async removeProduct(productName: string): Promise<void> {
     const row = this.cartTable.locator('tbody tr').filter({ hasText: productName });
-    await row.locator('.cart_delete a').click();
+    await row.locator('a[data-product-id]').click();
   }
 
   async verifyProductRemoved(productName: string): Promise<void> {
@@ -45,8 +45,8 @@ export class CartPage {
 
     for (let i = 0; i < count; i++) {
       const cartRow = cartRows.nth(i);
-      const name = await cartRow.locator('.cart_description h4').innerText();
-      const price = await cartRow.locator('.cart_price p').innerText();
+      const name = await cartRow.locator('h4').innerText();
+      const price = await cartRow.locator('td').nth(2).locator('p').innerText();
       products.push({ name, price });
     }
 
@@ -60,8 +60,8 @@ export class CartPage {
     for (const product of expectedProducts) {
       const cartRow = this.cartTable.locator('tbody tr').filter({ hasText: product.name });
       await expect(cartRow).toHaveCount(1);
-      await expect(cartRow.locator('.cart_description h4')).toHaveText(product.name);
-      await expect(cartRow.locator('.cart_price p')).toHaveText(product.price);
+      await expect(cartRow.locator('h4')).toHaveText(product.name);
+      await expect(cartRow.locator('td').nth(2).locator('p')).toHaveText(product.price);
     }
   }
 
