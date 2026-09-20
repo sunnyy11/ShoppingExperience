@@ -50,17 +50,16 @@ export class ProductsPage {
   }
 
   async getFirstSearchedProductName(): Promise<string> {
-    return await this.productCards.nth(0).locator('.productinfo').locator('p').innerText();
+    return await this.productCards.nth(0).locator('p').nth(0).innerText();
   }
 
   async addProductToCart(index: number): Promise<ProductInfo> {
     const productCard = this.productCards.nth(index);
-    const productDetails = productCard.locator('.productinfo');
-    const name = await productDetails.locator('p').innerText();
-    const price = await productDetails.locator('h2').innerText();
+    const name = await productCard.locator('p').nth(0).innerText();
+    const price = await productCard.locator('h2').nth(0).innerText();
 
     await productCard.hover();
-    await productCard.locator('.product-overlay a.add-to-cart').evaluate((el: HTMLElement) => el.click());
+    await productCard.locator('a[data-product-id]').nth(0).evaluate((el: HTMLElement) => el.click());
 
     const cancelBtn = this.page.getByRole('button', { name: 'Cancel' });
     if (await cancelBtn.isVisible().catch(() => false)) {
