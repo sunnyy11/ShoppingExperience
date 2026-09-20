@@ -1,6 +1,10 @@
 import { defineConfig } from '@playwright/test';
 
-process.loadEnvFile('.env');
+import { existsSync } from 'node:fs';
+
+if (existsSync('.env')) {
+  process.loadEnvFile('.env');
+}
 
 function requiredEnvironmentVariable(name: string): string {
   const value = process.env[name]?.trim();
