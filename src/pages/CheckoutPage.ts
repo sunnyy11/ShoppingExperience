@@ -29,7 +29,7 @@ export class CheckoutPage {
     await this.lastName.fill('User');
     await this.company.fill('Test Company');
     await this.address.fill('Vadodara');
-    await this.page.getByText('Vadodara', { exact: true }).first().click();
+    await this.page.locator('li').getByText('Vadodara', { exact: true }).click();
     await this.phone.fill('9876543210');
   }
 

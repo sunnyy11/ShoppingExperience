@@ -50,12 +50,12 @@ export class ProductsPage {
   }
 
   async getFirstSearchedProductName(): Promise<string> {
-    return await this.productCards.locator('.productinfo p').first().innerText();
+    return await this.productCards.nth(0).locator('.productinfo').locator('p').innerText();
   }
 
   async addProductToCart(index: number): Promise<ProductInfo> {
     const productCard = this.productCards.nth(index);
-    const productDetails = productCard.locator('.productinfo').first();
+    const productDetails = productCard.locator('.productinfo');
     const name = await productDetails.locator('p').innerText();
     const price = await productDetails.locator('h2').innerText();
 
