@@ -3,7 +3,7 @@ import { expect, test } from '@fixtures/test-options';
 
 test.setTimeout(120_000);
 
-const PRODUCT_CARDS = '.features_items .product-image-wrapper';
+const PRODUCT_CARDS = 'div:has(> img):has(> h2):has(> p):has(> a[data-product-id])';
 
 test.describe('Automation Exercise checkout', () => {
   test('places an order after logging in', async ({ page }) => {
@@ -30,7 +30,7 @@ await test.step('add two products to the cart', async () => {
         const productCard = productCards.nth(index);
 
         await productCard.hover();
-        await productCard.locator('.product-overlay a.add-to-cart').evaluate((el: HTMLElement) => el.click());
+        await productCard.locator('a[data-product-id]').evaluate((el: HTMLElement) => el.click());
 
         const cancelBtn = page.getByRole('button', { name: 'Cancel' });
         if (await cancelBtn.isVisible().catch(() => false)) {

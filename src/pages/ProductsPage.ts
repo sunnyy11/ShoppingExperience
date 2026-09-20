@@ -1,6 +1,6 @@
 import { type Locator, type Page, expect } from '@playwright/test';
 
-const PRODUCT_CARDS = '.features_items .product-image-wrapper';
+const PRODUCT_CARDS = 'div:has(> img):has(> h2):has(> p):has(> a[data-product-id])';
 
 export interface ProductInfo {
   name: string;
