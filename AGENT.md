@@ -5,7 +5,7 @@
 > An AI coding agent generating or modifying tests in this repo must conform to every rule below.
 
 **Stack:** Playwright Test (`@playwright/test`) · TypeScript (strict) · Node.js LTS
-**Owner:** QA Engineering / SDET Guild · **Last reviewed:** 2026-09-18
+**Owner:** QA Engineering / SDET · **Last reviewed:** 2026-09-18
 
 ---
 

@@ -1,35 +1,51 @@
 name: Playwright Tests
+
 on:
   push:
     branches: [main, master]
   pull_request:
     branches: [main, master]
+
 jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version-file: .nvmrc
+          node-version: '20'
+          cache: 'npm'
+
       - name: Install dependencies
         run: npm ci
-      - name: Install Playwright Browsers
-        run: npx playwright install --with-deps
-      - name: Typecheck
-        run: npm run typecheck
-      - name: Lint
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: Run linting
         run: npm run lint
+
+      - name: Run type checking
+        run: npm run typecheck
+
       - name: Run Playwright tests
-        run: npx playwright test
-        env:
-          BASE_URL: ${{ secrets.BASE_URL || 'https://automationexercise.com' }}
-          AUTOMATION_EXERCISE_TEST_EMAIL: ${{ secrets.AUTOMATION_EXERCISE_TEST_EMAIL }}
-          AUTOMATION_EXERCISE_TEST_PASSWORD: ${{ secrets.AUTOMATION_EXERCISE_TEST_PASSWORD }}
-      - uses: actions/upload-artifact@v4
-        if: ${{ !cancelled() }}
+        run: npm test
+
+      - name: Upload Playwright report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
-          retention-days: 30
+          retention-days: 7
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results/
+          retention-days: 7
