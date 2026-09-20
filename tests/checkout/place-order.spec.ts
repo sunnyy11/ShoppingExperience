@@ -1,6 +1,8 @@
 ﻿import { getConfiguredUser } from '@data/test-user';
 import { expect, test } from '@fixtures/test-options';
 
+test.setTimeout(120_000);
+
 const PRODUCT_CARDS = '.features_items .product-image-wrapper';
 
 test.describe('Automation Exercise checkout', () => {

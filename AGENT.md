@@ -9,7 +9,7 @@
 
 ---
 
-## 0. Golden Rules
+## 0. Golden Rules - MUST
 
 1. **Role-based locators.** `getByRole` / `getByLabel` / `getByText` first, `getByTestId` when semantics fall short. Never XPath or brittle CSS.
 2. **Web-first, auto-retrying assertions.** `await expect(locator)…`. Never `page.waitForTimeout()`.
@@ -73,17 +73,49 @@ Minimum npm scripts (contract other tooling relies on):
 
 ## 3. TypeScript Standards
 
-- `strict: true`, plus `noUncheckedIndexedAccess` and `noImplicitOverride`. No loosening without team sign-off.
-- No `any` — use precise types, generics, or `unknown` + narrowing.
-- No non-null assertions (`!`) to silence the compiler — handle the null case.
-- Export shared `type`/`interface` from a typed module rather than redefining inline.
-- **Await everything.** Enable `missing-playwright-await` and `no-floating-promises` — a missing `await` is the top cause of "impossible" flakiness.
-- No magic values — routes, timeouts, roles become named constants/config.
-- Use path aliases (`@pages/*`, `@fixtures/*`) to avoid `../../../` chains.
+---
+### Compiler & Config
+- `strict: true` in tsconfig.json (enables strictNullChecks, noImplicitAny, etc.)
+- `noImplicitReturns: true`
+- Target ES2022+, module `commonjs` or `ESNext` depending on your runner
+- No `// @ts-ignore` without a comment explaining why; prefer `// @ts-expect-error`
 
+### Typing Rules
+- No `any` — use `unknown` and narrow it, or define a proper interface/type
+- Explicit return types on exported functions and class methods
+- Prefer `interface` for object shapes that may be extended; `type` for unions/intersections/utility types
+- Use `readonly` for arrays/properties that shouldn't mutate (e.g., test data fixtures)
+- Avoid non-null assertions (`!`) — handle the null/undefined case explicitly
+
+### Naming Conventions
+- PascalCase for classes, interfaces, types, enums (`LoginPage`, `UserPayload`)
+- camelCase for variables, functions, methods (`addToCart`, `productQuantity`)
+- UPPER_SNAKE_CASE for constants (`DEFAULT_TIMEOUT`, `BASE_URL`)
+- Test files: `*.spec.ts`; Page Objects: `*.page.ts`; fixtures: `*.fixture.ts`
+
+### Project Structure
+- One class per file for Page Objects, named exports (not default exports)
+- Locators defined as `readonly` class properties, initialized in constructor
+- Shared types/interfaces in a `types/` or `models/` folder
+- Test data separated into fixtures/JSON, not hardcoded in specs
+
+### Playwright-Specific
+- Use Playwright's built-in `test.step()` for readable reporting
+- Fixtures (`test.extend`) typed explicitly — no implicit `any` in custom fixtures
+- Avoid `page.waitForTimeout()` — use web-first assertions (`expect(locator).toBeVisible()`) instead
+- Async/await everywhere — no floating promises (enforce via ESLint `@typescript-eslint/no-floating-promises`)
+
+### Linting & Formatting
+- ESLint with `@typescript-eslint/recommended` + `plugin:playwright/recommended`
+- Prettier for formatting (no style debates in code review)
+- Pre-commit hook (husky + lint-staged) to run lint/format before commit
+
+### Documentation
+- JSDoc comments on exported functions/classes describing purpose, params, return type
+- README per module explaining page object responsibilities where non-obvious
 ---
 
-## 4. Naming Conventions
+## 4. Naming Conventions - MUST
 
 | Element | Convention | Example |
 |---|---|---|
@@ -99,7 +131,7 @@ Test titles describe user-facing behavior, never implementation (`'test checkout
 
 ---
 
-## 5. Locator Strategy
+## 5. Locator Strategy -MUST
 
 Priority order — stop at the first that fits:
 
@@ -124,7 +156,7 @@ await page.click('#app > div > div:nth-child(3) button');      // structural CSS
 
 ---
 
-## 6. Assertions
+## 6. Assertions - MUST
 
 - Use Playwright's auto-retrying assertions (`expect(locator)…`, `expect(page)…`, `expect(response)…`) — they poll until the condition holds or times out.
 - **Always `await` an `expect`** on a locator/page/response — a missing `await` makes it a no-op.
@@ -143,9 +175,9 @@ expect(await page.getByRole('alert').textContent()).toBe('Payment received');
 
 ---
 
-## 7. Waiting & Synchronization
+## 7. Waiting & Synchronization - MUST
 
-- **`page.waitForTimeout(ms)` is banned** in committed code — always too short (flaky) or too long (slow). Enforce with `no-wait-for-timeout`.
+- **NEVER** `page.waitForTimeout(ms)` in committed code — always too short (flaky) or too long (slow). Enforce with `no-wait-for-timeout`.
 - Rely on Playwright's auto-waiting for actions and web-first assertions for state.
 - Wait for a specific signal, not the clock: `page.waitForResponse()`, `page.waitForURL()`.
 - Set up the wait *before* triggering the action, to avoid races:
@@ -158,7 +190,7 @@ expect((await responsePromise).ok()).toBeTruthy();
 
 ---
 
-## 8. Page Object Model
+## 8. Page Object Model - MUST
 
 - A Page Object encapsulates locators and actions for one page/view.
 - Expose locators as readonly properties/getters; expose intent-revealing actions (`login()`, `addToCart()`), not raw click wrappers.
@@ -196,24 +228,49 @@ export class LoginPage {
 
 ---
 
-## 9. Fixtures
+## 9. Fixtures - MUST
 
-Prefer custom fixtures over repetitive `beforeEach` boilerplate for Page Objects, authenticated contexts, and test data.
+### Framework Architecture
 
-```ts
-// src/fixtures/test-options.ts
-export const test = base.extend<{ loginPage: LoginPage }>({
+### Fixture-Based Design
+- Use `test.extend<Fixtures>()` to compose Page Objects and shared setup
+- Fixtures typed explicitly via a `Fixtures` interface — no implicit `any`
+- Page Objects are instantiated inside fixtures, not inside test bodies
+- Base fixture file (e.g. `fixtures/base.ts`) merges all page object fixtures + custom fixtures (auth, API clients, test data)
+- Tests import the extended `test` from the fixture file, not from `@playwright/test` directly
+
+Example shape:
+```typescript
+// fixtures/base.ts
+import { test as base } from '@playwright/test';
+import { LoginPage } from '../pages/login.page';
+import { CartPage } from '../pages/cart.page';
+
+type Fixtures = {
+  loginPage: LoginPage;
+  cartPage: CartPage;
+};
+
+export const test = base.extend<Fixtures>({
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page));
   },
+  cartPage: async ({ page }, use) => {
+    await use(new CartPage(page));
+  },
 });
+
 export { expect } from '@playwright/test';
 ```
 
-- Import `test`/`expect` from the merged fixtures module, not `@playwright/test` directly, in specs needing custom fixtures.
-- Tear down after `use()` (close resources, delete created data).
-- `worker`-scoped fixtures for expensive once-per-worker setup; `test`-scoped for per-test data.
-- Compose fixture modules with `mergeTests` rather than copying.
+- Worker-scoped fixtures (`{ scope: 'worker' }`) for expensive setup shared across tests (e.g. API auth tokens)
+- Auto-fixtures (`{ auto: true }`) for things every test needs without importing (e.g. tracing, logging)
+
+### CI Enforcement
+- Lint step runs before test execution in the pipeline; **pipeline fails on any ESLint error** (not just warnings)
+- `tsc --noEmit` runs as a separate CI step to catch type errors before tests run
+- Prettier check (`--check`, not `--write`) in CI — formatting issues fail the build, not auto-fixed silently
+- Suggested pipeline order: `install → tsc --noEmit → eslint → prettier --check → playwright test`
 
 ---
 
@@ -236,10 +293,10 @@ test('critical login path', { tag: '@smoke' }, async ({ loginPage }) => {
 
 ---
 
-## 11. Test Data Management
+## 11. Test Data Management - MUST
 
 - Generate data (e.g. `@faker-js/faker`); don't hardcode it, so parallel runs don't collide.
-- Each test owns its data lifecycle — create via API where possible (see §12), clean up in teardown.
+- Each test owns its data lifecycle — create via API where possible (see §14), clean up in teardown.
 - No dependence on pre-existing "magic" records in a shared environment.
 - Credentials never live in data files — pull from env (§13a).
 
@@ -255,7 +312,7 @@ export function buildUser(overrides: Partial<User> = {}): User {
 
 ---
 
-## 12. Configuration (`playwright.config.ts`)
+## 12. Configuration (`playwright.config.ts`) -MUST
 
 Centralize run config; keep environment-specific values in env vars.
 
@@ -350,21 +407,8 @@ await page.route('**/api/payments', route =>
 - Generate/update baselines in the same OS/browser as CI (fonts and anti-aliasing differ across platforms).
 - Keep visual tests in their own tagged group (`@visual`).
 
----
 
-## 17. Accessibility Testing
-
-- Run automated a11y scans on key flows with `@axe-core/playwright`.
-- These catch a subset of issues — pair with role-based locators (§5), which enforce accessible markup by construction.
-
-```ts
-const results = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa']).analyze();
-expect(results.violations).toEqual([]);
-```
-
----
-
-## 18. Parallelism & Isolation
+## 17. Parallelism & Isolation
 
 - `fullyParallel: true` — tests must be safe to run concurrently.
 - Every test gets a fresh browser context (Playwright default) — don't defeat this by sharing a context manually.
@@ -374,7 +418,7 @@ expect(results.violations).toEqual([]);
 
 ---
 
-## 19. Flakiness Policy
+## 18. Flakiness Policy
 
 A test that passes and fails without code changes is a defect.
 
@@ -385,7 +429,7 @@ A test that passes and fails without code changes is a defect.
 
 ---
 
-## 20. Reporting & Artifacts
+## 19. Reporting & Artifacts
 
 - HTML reporter for local review; `blob` reporter in CI so sharded runs merge (`playwright merge-reports`).
 - `junit`/`github` reporters for pipeline annotations and dashboards.
@@ -394,7 +438,7 @@ A test that passes and fails without code changes is a defect.
 
 ---
 
-## 21. CI/CD Integration
+## 20. CI/CD Integration
 
 - Run the full suite on every PR (or `@smoke` on PR + full on merge for very large suites).
 - Install browsers with `--with-deps`; cache the browser download between runs.
@@ -419,7 +463,7 @@ jobs:
 
 ---
 
-## 22. Debugging & Local Workflow
+## 21. Debugging & Local Workflow
 
 Reach for these instead of `console.log` + sleeps:
 
@@ -430,7 +474,7 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 23. Version Control & PR Standards
+## 22. Version Control & PR Standards
 
 - Small, focused PRs; new tests ship with the feature or a clearly scoped test PR.
 - Conventional Commits (`test:`, `fix:`, `feat:`, `chore:`).
@@ -440,7 +484,7 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 24. Security & Secrets
+## 23. Security & Secrets
 
 - No credentials, tokens, or PII in the repo — including test data files.
 - All secrets via env vars / CI secret store; `.env.example` documents variable *names* only.
@@ -449,7 +493,7 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 25. Performance & Test Health Budgets
+## 24. Performance & Test Health Budgets
 
 - Prefer API setup over UI setup — a multi-minute UI test is doing too much; split it.
 - Target a p95 duration budget per test (e.g. < 30s) and watch total suite wall-clock time; regressions get reviewed.
@@ -457,7 +501,7 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 26. Forbidden List
+## 25. Forbidden List
 
 - `page.waitForTimeout()` / hard sleeps
 - XPath, `nth-child`/structural CSS, or styling-class locators
@@ -474,7 +518,7 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 27. Definition of Done
+## 26. Definition of Done
 
 - [ ] Tests are independent, isolated, pass with `--fully-parallel` in any order.
 - [ ] Locators follow §5 priority order; no XPath/brittle CSS.
@@ -493,6 +537,13 @@ Reach for these instead of `console.log` + sleeps:
 ### Appendix — How an AI agent should apply this file
 
 1. Read existing Page Objects/fixtures first and reuse them — extend, don't duplicate.
-2. Generate code that already satisfies §27 — don't rely on review to catch violations.
+2. Generate code that already satisfies §26 — don't rely on review to catch violations.
 3. If a rule here conflicts with a request, surface the conflict and propose a compliant alternative.
 4. When something isn't covered here, follow official Playwright best-practice guidance and note the decision so this document can be updated.
+5. Follow the below browser rules
+    #No Browser rule
+    Never use browser action tool
+    Never take browser screenshot
+    Never send browser url to API request
+    Only write and edit code in directly in files
+    Do not open or launch any browser to test code

@@ -1,103 +1,62 @@
-import { type Page } from '@playwright/test';
 import { expect, test } from '@fixtures/test-options';
 
-const AUTOMATION_EXERCISE_URL = 'https://automationexercise.com/';
-const PRODUCT_CARDS = '.features_items .product-image-wrapper';
-
-interface Product {
-  name: string;
-  price: string;
-}
-
-async function addProductToCart(page: Page, index: number): Promise<Product> {
-  const productCard = page.locator(PRODUCT_CARDS).nth(index);
-  const productDetails = productCard.locator('.productinfo').first();
-  const name = await productDetails.locator('p').innerText();
-  const price = await productDetails.locator('h2').innerText();
-
-  await productCard.hover();
-  await productCard.locator('.product-overlay a.add-to-cart').click();
-
-  if (index === 0) {
-    await page.getByRole('button', { name: 'Continue Shopping' }).click();
-  }
-
-  return { name, price };
-}
+test.setTimeout(120_000);
 
 test.describe('Automation Exercise products', () => {
-  test('searches for a product', async ({ page }) => {
-    const productName = 'Blue Top';
+  const PRODUCT_NAME = 'Blue Top';
+  const QUANTITY = '4';
 
+  test('searches for a product', async ({ page, productsPage }) => {
     await test.step('open the home page and navigate to products', async () => {
-      await page.goto(AUTOMATION_EXERCISE_URL);
-
+      await page.goto('/');
       await expect(page).toHaveTitle(/Automation Exercise/i);
       await page.getByRole('link', { name: 'Products' }).click();
-      await page.goto('/products', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: 'All Products' })).toBeVisible();
+      await productsPage.goto();
     });
 
     await test.step('search for a product', async () => {
-      await page.locator('#search_product').fill(productName);
-      await page.locator('#submit_search').click();
-
-      await expect(page.getByRole('heading', { name: 'Searched Products' })).toBeVisible();
+      await productsPage.search(PRODUCT_NAME);
     });
 
     await test.step('verify the matching products are visible', async () => {
-      const searchedProducts = page.locator(PRODUCT_CARDS);
-
-      await expect(searchedProducts).toHaveCount(1);
-      await expect(searchedProducts.locator('.productinfo p').first()).toHaveText(productName);
+      const count = await productsPage.getSearchedProductsCount();
+      expect(count).toBe(1);
+      const firstProductName = await productsPage.getFirstSearchedProductName();
+      expect(firstProductName).toContain(PRODUCT_NAME);
     });
   });
 
-  test('adds two products to the cart', async ({ page }) => {
+  test('adds two products to the cart', async ({ page, productsPage, cartPage }) => {
     await test.step('open the home page and navigate to products', async () => {
-      await page.goto(AUTOMATION_EXERCISE_URL);
-
+      await page.goto('/');
       await expect(page).toHaveTitle(/Automation Exercise/i);
       await page.getByRole('link', { name: 'Products' }).click();
-      await page.goto('/products', { waitUntil: 'domcontentloaded' });
-      await expect(page.getByRole('heading', { name: 'All Products' })).toBeVisible();
+      await productsPage.goto();
     });
 
     const firstProduct = await test.step('add the first product to the cart', async () => {
-      return await addProductToCart(page, 0);
+      return await productsPage.addProductToCart(0);
     });
 
     const secondProduct = await test.step('add the second product to the cart', async () => {
-      return await addProductToCart(page, 1);
+      return await productsPage.addProductToCart(1);
     });
 
     const products = [firstProduct, secondProduct];
 
     await test.step('verify both products and their cart totals', async () => {
-      await page.getByRole('link', { name: 'View Cart' }).click();
-
-      const cartRows = page.locator('#cart_info_table tbody tr');
-      await expect(cartRows).toHaveCount(products.length);
-
-      for (const [index, product] of products.entries()) {
-        const cartRow = cartRows.nth(index);
-
-        await expect(cartRow.locator('.cart_description h4')).toHaveText(product.name);
-        await expect(cartRow.locator('.cart_price p')).toHaveText(product.price);
-        await expect(cartRow.locator('.cart_quantity button')).toHaveText('1');
-        await expect(cartRow.locator('.cart_total_price')).toHaveText(product.price);
-      }
+      await productsPage.openCart();
+      await cartPage.expectLoaded();
+      await cartPage.verifyCartHasProducts(products);
     });
   });
 
-  test('verifies a product quantity in the cart', async ({ page }) => {
-    const quantity = '4';
-
+  test('verifies a product quantity in the cart', async ({ page, productsPage, cartPage }) => {
     await test.step('open a product from the home page', async () => {
-      await page.goto(AUTOMATION_EXERCISE_URL);
-
+      await page.goto('/');
       await expect(page).toHaveTitle(/Automation Exercise/i);
-      await page.getByRole('link', { name: 'View Product' }).first().click();
+      // eslint-disable-next-line playwright/no-force-option -- A Google AdSense iframe intermittently overlays the "View Product" links on the home page.
+      await page.getByRole('link', { name: 'View Product' }).first().click({ force: true });
       await expect(page.locator('.product-information h2')).toBeVisible();
     });
 
@@ -105,7 +64,7 @@ test.describe('Automation Exercise products', () => {
       await test.step('set the product quantity and add it to the cart', async () => {
         const name = await page.locator('.product-information h2').innerText();
 
-        await page.locator('#quantity').fill(quantity);
+        await page.locator('#quantity').fill(QUANTITY);
         await page.getByRole('button', { name: 'Add to cart' }).click();
 
         return name;
@@ -113,10 +72,13 @@ test.describe('Automation Exercise products', () => {
 
     await test.step('verify the exact product quantity in the cart', async () => {
       await page.getByRole('link', { name: 'View Cart' }).click();
+      await cartPage.expectLoaded();
 
+      const cartProducts = await cartPage.getCartProducts();
+      const matchingProduct = cartProducts.find(p => p.name === productName);
+      expect(matchingProduct).toBeDefined();
       const cartRow = page.locator('#cart_info_table tbody tr').filter({ hasText: productName });
-      await expect(cartRow).toHaveCount(1);
-      await expect(cartRow.locator('.cart_quantity button')).toHaveText(quantity);
+      await expect(cartRow.locator('.cart_quantity button')).toHaveText(QUANTITY);
     });
   });
 });

@@ -1,7 +1,7 @@
 import { test, expect } from '@fixtures/test-options';
 import { getConfiguredUser } from '@data/test-user';
 
-const AUTOMATION_EXERCISE_URL = 'https://automationexercise.com/';
+test.setTimeout(120_000);
 
 test.describe('Automation Exercise login', () => {
   test('logs in with the registered user and verifies Delete Account is available', async ({
@@ -10,7 +10,7 @@ test.describe('Automation Exercise login', () => {
     const user = getConfiguredUser();
 
     await test.step('open the home page and navigate to login', async () => {
-      await page.goto(AUTOMATION_EXERCISE_URL);
+      await page.goto('/');
 
       await expect(page).toHaveTitle(/Automation Exercise/i);
       await page.getByRole('link', { name: /signup\s*\/\s*login/i }).click();

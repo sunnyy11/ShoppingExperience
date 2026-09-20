@@ -22,4 +22,10 @@ export class LoginPage {
     await this.password.fill(password);
     await this.submit.click();
   }
+
+  async loginAutomationExercise(email: string, password: string): Promise<void> {
+    await this.page.locator('[data-qa="login-email"]').fill(email);
+    await this.page.locator('[data-qa="login-password"]').fill(password);
+    await this.page.getByRole('button', { name: 'Login' }).click();
+  }
 }

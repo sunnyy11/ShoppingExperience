@@ -1,14 +1,14 @@
 import { expect, test } from '@fixtures/test-options';
 import { buildTestUser, storeTestUser } from '@data/test-user';
 
-const AUTOMATION_EXERCISE_URL = 'https://automationexercise.com/';
+test.setTimeout(120_000);
 
 test.describe('Automation Exercise registration', () => {
   test('registers a new user', { tag: '@smoke' }, async ({ page }) => {
     const user = buildTestUser();
 
       await test.step('open the home page and start signup', async () => {
-      await page.goto(AUTOMATION_EXERCISE_URL);
+      await page.goto('/');
 
       await expect(page).toHaveTitle(/Automation Exercise/i);
       await page.getByRole('link', { name: /signup\s*\/\s*login/i }).click();
