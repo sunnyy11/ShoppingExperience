@@ -74,11 +74,6 @@ Minimum npm scripts (contract other tooling relies on):
 ## 3. TypeScript Standards
 
 ---
-### Compiler & Config
-- `strict: true` in tsconfig.json (enables strictNullChecks, noImplicitAny, etc.)
-- `noImplicitReturns: true`
-- Target ES2022+, module `commonjs` or `ESNext` depending on your runner
-- No `// @ts-ignore` without a comment explaining why; prefer `// @ts-expect-error`
 
 ### Typing Rules
 - No `any` — use `unknown` and narrow it, or define a proper interface/type

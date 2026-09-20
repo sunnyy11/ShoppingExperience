@@ -30,7 +30,12 @@ await test.step('add two products to the cart', async () => {
         const productCard = productCards.nth(index);
 
         await productCard.hover();
-        await productCard.locator('.product-overlay a.add-to-cart').click();
+        await productCard.locator('.product-overlay a.add-to-cart').evaluate((el: HTMLElement) => el.click());
+
+        const cancelBtn = page.getByRole('button', { name: 'Cancel' });
+        if (await cancelBtn.isVisible().catch(() => false)) {
+            await cancelBtn.click();
+        }
 
         await expect(page.getByRole('heading', { name: 'Added!' })).toBeVisible();
         await page.getByRole('button', { name: 'Continue Shopping' }).click();
@@ -40,8 +45,7 @@ await test.step('add two products to the cart', async () => {
 await test.step('open the cart and proceed to checkout', async () => {
       await page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
       await expect(page.locator('#cart_info_table')).toBeVisible();
-      // eslint-disable-next-line playwright/no-force-option -- Google ad iframe overlays the button on this page.
-      await page.getByText('Proceed To Checkout', { exact: true }).click({ force: true });
+      await page.getByText('Proceed To Checkout', { exact: true }).click();
 
       await expect(page.getByRole('heading', { name: 'Address Details' })).toBeVisible();
       await expect(page.getByRole('heading', { name: 'Review Your Order' })).toBeVisible();

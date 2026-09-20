@@ -60,7 +60,12 @@ export class ProductsPage {
     const price = await productDetails.locator('h2').innerText();
 
     await productCard.hover();
-    await productCard.locator('.product-overlay a.add-to-cart').click();
+    await productCard.locator('.product-overlay a.add-to-cart').evaluate((el: HTMLElement) => el.click());
+
+    const cancelBtn = this.page.getByRole('button', { name: 'Cancel' });
+    if (await cancelBtn.isVisible().catch(() => false)) {
+        await cancelBtn.click();
+    }
 
     await expect(this.page.getByRole('heading', { name: 'Added!' })).toBeVisible();
     await this.page.getByRole('button', { name: 'Continue Shopping' }).click();

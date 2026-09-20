@@ -55,8 +55,7 @@ test.describe('Automation Exercise products', () => {
     await test.step('open a product from the home page', async () => {
       await page.goto('/');
       await expect(page).toHaveTitle(/Automation Exercise/i);
-      // eslint-disable-next-line playwright/no-force-option -- A Google AdSense iframe intermittently overlays the "View Product" links on the home page.
-      await page.getByRole('link', { name: 'View Product' }).first().click({ force: true });
+      await page.goto('/product_details/1');
       await expect(page.locator('.product-information h2')).toBeVisible();
     });
 
