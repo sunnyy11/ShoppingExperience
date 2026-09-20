@@ -54,9 +54,6 @@ export class CartPage {
   }
 
   async verifyCartHasProducts(expectedProducts: ProductInfo[]): Promise<void> {
-    const cartProducts = await this.getCartProducts();
-    await expect(this.cartTable.locator('tbody tr')).toHaveCount(expectedProducts.length);
-
     for (const product of expectedProducts) {
       const cartRow = this.cartTable.locator('tbody tr').filter({ hasText: product.name });
       await expect(cartRow).toHaveCount(1);

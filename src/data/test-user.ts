@@ -1,5 +1,4 @@
 import { faker } from '@faker-js/faker';
-import { readFile, writeFile } from 'node:fs/promises';
 
 export interface TestUser {
   email: string;
@@ -17,35 +16,13 @@ export function buildTestUser(): TestUser {
   return { email, password, firstName, lastName };
 }
 
-export async function storeTestUser(user: TestUser): Promise<void> {
-  const envPath = '.env';
-  const envContent = await readFile(envPath, 'utf8');
-  const entries = [
-    ['AUTOMATION_EXERCISE_TEST_EMAIL', user.email],
-    ['AUTOMATION_EXERCISE_TEST_PASSWORD', user.password],
-  ] as const;
-
-  const updatedEnvContent = entries.reduce((content, [key, value]) => {
-    const line = `${key}=${value}`;
-    const keyPattern = new RegExp(`^${key}=.*$`, 'm');
-
-    return keyPattern.test(content)
-      ? content.replace(keyPattern, line)
-      : `${content.trimEnd()}\n${line}\n`;
-  }, envContent);
-
-  await writeFile(envPath, updatedEnvContent, 'utf8');
-  process.env.AUTOMATION_EXERCISE_TEST_EMAIL = user.email;
-  process.env.AUTOMATION_EXERCISE_TEST_PASSWORD = user.password;
-}
-
 export function getConfiguredUser(): TestUser {
   const email = process.env.AUTOMATION_EXERCISE_TEST_EMAIL;
   const password = process.env.AUTOMATION_EXERCISE_TEST_PASSWORD;
 
   if (!email || !password) {
     throw new Error(
-      'AUTOMATION_EXERCISE_TEST_EMAIL and AUTOMATION_EXERCISE_TEST_PASSWORD must be set by registration before login.',
+      'AUTOMATION_EXERCISE_TEST_EMAIL and AUTOMATION_EXERCISE_TEST_PASSWORD must be set in .env.',
     );
   }
 

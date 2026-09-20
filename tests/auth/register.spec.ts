@@ -1,5 +1,5 @@
 import { expect, test } from '@fixtures/test-options';
-import { buildTestUser, storeTestUser } from '@data/test-user';
+import { buildTestUser } from '@data/test-user';
 
 test.setTimeout(120_000);
 
@@ -51,7 +51,6 @@ test.describe('Automation Exercise registration', () => {
 
     await test.step('confirm registration and login', async () => {
       await expect(page.getByRole('heading', { name: 'Account Created!' })).toBeVisible();
-      await storeTestUser(user);
       await page.getByRole('link', { name: 'Continue' }).click();
       await expect(page.getByText(`Logged in as ${user.firstName} ${user.lastName}`)).toBeVisible();
     });
