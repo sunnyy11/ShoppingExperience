@@ -10,6 +10,8 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+    env:
+      BASE_URL: https://automationexercise.com
     steps:
       - uses: actions/checkout@v4
 
