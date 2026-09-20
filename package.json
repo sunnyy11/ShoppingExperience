@@ -1,0 +1,34 @@
+{
+  "name": "saucedemo",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test",
+    "test:headed": "playwright test --headed",
+    "test:ui": "playwright test --ui",
+    "test:smoke": "playwright test --grep @smoke",
+    "test:debug": "playwright test --debug",
+    "report": "playwright show-report",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "@faker-js/faker": "^10.6.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^26.6.1",
+    "@typescript-eslint/eslint-plugin": "^8.70.0",
+    "@typescript-eslint/parser": "^8.70.0",
+    "eslint": "^10.10.0",
+    "eslint-plugin-playwright": "^2.12.0",
+    "prettier": "^3.9.8"
+  }
+}
