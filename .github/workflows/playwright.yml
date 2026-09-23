@@ -119,6 +119,9 @@ jobs:
         with:
           path: blob-reports
 
+      - name: Copy blob reports to top level
+        run: find blob-reports -path "*/blob-report/*.zip" -exec cp {} blob-reports/ \;
+
       - name: Merge reports
         run: npx playwright merge-reports blob-reports --reporter html
 
