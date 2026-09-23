@@ -5,6 +5,11 @@ export interface ProductInfo {
   price: string;
 }
 
+export interface CartProduct extends ProductInfo {
+  quantity: number;
+  total: string;
+}
+
 export class CartPage {
   readonly page: Page;
   readonly checkout: Locator;
@@ -12,58 +17,111 @@ export class CartPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.checkout = page.getByRole('button', { name: 'Check Out' });
+    this.checkout = page
+      .locator(
+        'a.check_out, a:has-text("Proceed To Checkout"), button:has-text("Proceed To Checkout")',
+      )
+      .first();
     this.cartTable = page.locator('#cart_info_table');
   }
 
   async expectLoaded(): Promise<void> {
+    await this.page.waitForURL('**/view_cart**');
+
+    // Force remove any persistent overlays
+    await this.clearOverlays();
+
+    try {
+      await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
+    } catch (e) {
+      // If the table isn't found, reload the page once.
+      // This often fixes session-related loading issues on this site.
+      await this.page.reload();
+      await this.page.waitForURL('**/view_cart**');
+      await this.clearOverlays();
+      await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
+    }
+
     await expect(this.cartTable).toBeVisible();
   }
 
+  async clearOverlays(): Promise<void> {
+    await this.page.evaluate(() => {
+      const overlays = document.querySelectorAll(
+        '.modal-backdrop, .modal-open, #cartModal, .google-auto-placed',
+      );
+      overlays.forEach((el) => el.remove());
+      document.body.classList.remove('modal-open');
+    });
+  }
+
   async proceedToCheckout(): Promise<void> {
+    await this.clearOverlays();
+    await this.cartTable.waitFor({ state: 'visible', timeout: 15000 });
+    await this.checkout.waitFor({ state: 'visible', timeout: 15000 });
     await this.checkout.click();
   }
 
   async removeProduct(productName: string): Promise<void> {
     const row = this.cartTable.locator('tbody tr').filter({ hasText: productName });
-    await row.locator('a[data-product-id]').click();
-  }
-
-  async verifyProductRemoved(productName: string): Promise<void> {
-    const row = this.cartTable.locator('tbody tr').filter({ hasText: productName });
-    await expect(row).toHaveCount(0);
+    const rowCountBefore = await this.cartTable.locator('tbody tr').count();
+    const deleteLink = row.locator('a[data-product-id]');
+    await deleteLink.click();
+    await this.waitForCartRowCountBelow(rowCountBefore);
   }
 
   async getCartRowCount(): Promise<number> {
     return await this.cartTable.locator('tbody tr').count();
   }
 
-  async getCartProducts(): Promise<ProductInfo[]> {
+  async getCartProducts(): Promise<CartProduct[]> {
     const cartRows = this.cartTable.locator('tbody tr');
     const count = await cartRows.count();
-    const products: ProductInfo[] = [];
+    const products: CartProduct[] = [];
 
     for (let i = 0; i < count; i++) {
       const cartRow = cartRows.nth(i);
       const name = await cartRow.locator('h4').innerText();
-      const price = await cartRow.locator('td').nth(2).locator('p').innerText();
-      products.push({ name, price });
+      const price = await cartRow.locator('td.cart_price p').innerText();
+      const quantityText = await cartRow.locator('td.cart_quantity button').innerText();
+      const total = await cartRow.locator('td.cart_total p').innerText();
+      products.push({ name, price, quantity: parseInt(quantityText, 10), total });
     }
 
     return products;
   }
 
-  async verifyCartHasProducts(expectedProducts: ProductInfo[]): Promise<void> {
-    for (const product of expectedProducts) {
-      const cartRow = this.cartTable.locator('tbody tr').filter({ hasText: product.name });
-      await expect(cartRow).toHaveCount(1);
-      await expect(cartRow.locator('h4')).toHaveText(product.name);
-      await expect(cartRow.locator('td').nth(2).locator('p')).toHaveText(product.price);
+  getProductRow(productName: string): Locator {
+    const normalizedName = productName
+      .replace(/\s+/g, ' ')
+      .replace(/\u00A0/g, ' ')
+      .trim();
+    return this.cartTable.locator('tbody tr').filter({ hasText: normalizedName });
+  }
+
+  getCartRows(): Locator {
+    return this.cartTable.locator('tbody tr');
+  }
+
+  async clearCart(): Promise<void> {
+    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
+    await this.clearOverlays();
+
+    while ((await this.getCartRowCount()) > 0) {
+      const rowCount = await this.getCartRowCount();
+      const deleteLink = this.cartTable.locator('tbody tr').first().locator('a[data-product-id]');
+      await deleteLink.click();
+      await this.waitForCartRowCountBelow(rowCount);
+      await this.clearOverlays();
     }
   }
 
-  async expectEmpty(): Promise<void> {
-    await expect(this.cartTable.locator('tbody tr')).toHaveCount(0);
-    await expect(this.page.getByText('Cart is empty!')).toBeVisible();
+  private async waitForCartRowCountBelow(target: number, timeout = 10000): Promise<void> {
+    await this.page.waitForFunction(
+      (data: { selector: string; count: number }) =>
+        document.querySelectorAll(data.selector).length < data.count,
+      { selector: '#cart_info_table tbody tr', count: target },
+      { timeout },
+    );
   }
 }

@@ -41,9 +41,6 @@ repo-root/
 ```
 
 - Specs live only in `tests/`, end in `.spec.ts`. No POMs/fixtures/helpers there.
-- One Page Object per file: `PascalCasePage.ts`, class name matches file name.
-- Mirror the app's information architecture in folder names.
-- Extract component objects if a Page Object exceeds ~200 lines.
 
 ---
 
@@ -56,6 +53,7 @@ repo-root/
 - Enforce in CI (not optional): ESLint (`@typescript-eslint`, `eslint-plugin-playwright`) + Prettier.
 
 Minimum npm scripts (contract other tooling relies on):
+
 ```jsonc
 {
   "scripts": {
@@ -64,8 +62,8 @@ Minimum npm scripts (contract other tooling relies on):
     "test:smoke": "playwright test --grep @smoke",
     "report": "playwright show-report",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
-  }
+    "typecheck": "tsc --noEmit",
+  },
 }
 ```
 
@@ -75,7 +73,13 @@ Minimum npm scripts (contract other tooling relies on):
 
 ---
 
+- `strict: true`, plus `noUncheckedIndexedAccess` and `noImplicitOverride`. No loosening without team sign-off.
+- No `any` — use precise types, generics, or `unknown` + narrowing.
+- No non-null assertions (`!`) to silence the compiler — handle the null case.
+- Export shared `type`/`interface` from a typed module rather than redefining inline.
+
 ### Typing Rules
+
 - No `any` — use `unknown` and narrow it, or define a proper interface/type
 - Explicit return types on exported functions and class methods
 - Prefer `interface` for object shapes that may be extended; `type` for unions/intersections/utility types
@@ -83,44 +87,50 @@ Minimum npm scripts (contract other tooling relies on):
 - Avoid non-null assertions (`!`) — handle the null/undefined case explicitly
 
 ### Naming Conventions
+
 - PascalCase for classes, interfaces, types, enums (`LoginPage`, `UserPayload`)
 - camelCase for variables, functions, methods (`addToCart`, `productQuantity`)
 - UPPER_SNAKE_CASE for constants (`DEFAULT_TIMEOUT`, `BASE_URL`)
 - Test files: `*.spec.ts`; Page Objects: `*.page.ts`; fixtures: `*.fixture.ts`
 
 ### Project Structure
+
 - One class per file for Page Objects, named exports (not default exports)
 - Locators defined as `readonly` class properties, initialized in constructor
 - Shared types/interfaces in a `types/` or `models/` folder
 - Test data separated into fixtures/JSON, not hardcoded in specs
 
 ### Playwright-Specific
+
 - Use Playwright's built-in `test.step()` for readable reporting
 - Fixtures (`test.extend`) typed explicitly — no implicit `any` in custom fixtures
 - Avoid `page.waitForTimeout()` — use web-first assertions (`expect(locator).toBeVisible()`) instead
 - Async/await everywhere — no floating promises (enforce via ESLint `@typescript-eslint/no-floating-promises`)
 
 ### Linting & Formatting
+
 - ESLint with `@typescript-eslint/recommended` + `plugin:playwright/recommended`
 - Prettier for formatting (no style debates in code review)
 - Pre-commit hook (husky + lint-staged) to run lint/format before commit
 
 ### Documentation
+
 - JSDoc comments on exported functions/classes describing purpose, params, return type
 - README per module explaining page object responsibilities where non-obvious
+
 ---
 
 ## 4. Naming Conventions - MUST
 
-| Element | Convention | Example |
-|---|---|---|
-| Spec file | `feature.spec.ts` | `login.spec.ts` |
-| Page Object | `PascalCasePage` | `CheckoutPage.ts` |
-| Component object | `PascalCaseComponent` | `NavBarComponent` |
-| Fixture | `camelCase` | `loginPage`, `authedRequest` |
-| Variables/functions | `camelCase` | `expectedTotal`, `createUser()` |
-| Constants/enums | `UPPER_SNAKE` / `PascalCase` | `DEFAULT_TIMEOUT`, `UserRole.Admin` |
-| Test titles | behavior sentence | `'prevents checkout when the cart is empty'` |
+| Element             | Convention                   | Example                                      |
+| ------------------- | ---------------------------- | -------------------------------------------- |
+| Spec file           | `feature.spec.ts`            | `login.spec.ts`                              |
+| Page Object         | `PascalCasePage`             | `CheckoutPage.ts`                            |
+| Component object    | `PascalCaseComponent`        | `NavBarComponent`                            |
+| Fixture             | `camelCase`                  | `loginPage`, `authedRequest`                 |
+| Variables/functions | `camelCase`                  | `expectedTotal`, `createUser()`              |
+| Constants/enums     | `UPPER_SNAKE` / `PascalCase` | `DEFAULT_TIMEOUT`, `UserRole.Admin`          |
+| Test titles         | behavior sentence            | `'prevents checkout when the cart is empty'` |
 
 Test titles describe user-facing behavior, never implementation (`'test checkout 2'` is not acceptable).
 
@@ -143,28 +153,32 @@ await page.getByRole('button', { name: 'Sign in' }).click();
 
 // BAD — forbidden
 await page.locator('//div[2]/form/input[1]').fill(user.email); // XPath
-await page.click('#app > div > div:nth-child(3) button');      // structural CSS
+await page.click('#app > div > div:nth-child(3) button'); // structural CSS
 ```
 
 5. **data-testid (or a custom test attribute)** — Still the strongest fallback. If the DOM has nothing addressable, this is the ask to raise with dev, not a locator workaround.
+
    ```ts
-   page.getByTestId('cart-summary-total')
+   page.getByTestId('cart-summary-total');
    ```
 
 6. **Chain and filter instead of writing a longer selector** — Combine a loose locator with `.filter()` or `.and()` to narrow scope without hardcoding structure.
+
    ```ts
-   await page.getByRole('listitem').filter({ hasText: 'Pro plan' }).getByRole('button')
-   await page.locator('.product-card').filter({ has: page.getByText('Out of stock') })
+   await page.getByRole('listitem').filter({ hasText: 'Pro plan' }).getByRole('button');
+   await page.locator('.product-card').filter({ has: page.getByText('Out of stock') });
    ```
 
 7. **`:has-text()` / `hasText` as a text-anchor when there's no role or label**
+
    ```ts
-   await page.locator('.dropdown-item', { hasText: 'Settings' })
+   await page.locator('.dropdown-item', { hasText: 'Settings' });
    ```
 
 8. **Structural CSS or `nth()` — last resort, always commented why** — Only when nothing above resolves uniquely (e.g. a repeated row with no distinguishing text or attribute).
+
    ```ts
-   await page.locator('table tbody tr').nth(2) // no unique id/text available in this grid — flag for a11y fix
+   await page.locator('table tbody tr').nth(2); // no unique id/text available in this grid — flag for a11y fix
    ```
 
 9. **Frame and Shadow DOM cases**
@@ -172,11 +186,6 @@ await page.click('#app > div > div:nth-child(3) button');      // structural CSS
    page.frameLocator('iframe[name="checkout"]').getByRole(...)
    ```
 
-- **MUST NOT** use XPath, `nth-child` chains, hashed class names, or wording likely to change often.
-- Chain/filter for scope instead of long selectors: `.filter({ hasText: 'Pro plan' })`.
-- Store locators as Page Object properties, not copy-pasted across specs.
-- If a locator resolves to multiple elements unintentionally, scope it — don't hide ambiguity with `.first()`.
-   
 - **MUST NOT** use XPath, `nth-child` chains, hashed class names, or wording likely to change often.
 - Chain/filter for scope instead of long selectors: `.filter({ hasText: 'Pro plan' })`.
 - Store locators as Page Object properties, not copy-pasted across specs.
@@ -208,7 +217,7 @@ expect(await page.getByRole('alert').textContent()).toBe('Payment received');
 - **NEVER** `page.waitForTimeout(ms)` in committed code — always too short (flaky) or too long (slow). Enforce with `no-wait-for-timeout`.
 - Rely on Playwright's auto-waiting for actions and web-first assertions for state.
 - Wait for a specific signal, not the clock: `page.waitForResponse()`, `page.waitForURL()`.
-- Set up the wait *before* triggering the action, to avoid races:
+- Set up the wait _before_ triggering the action, to avoid races:
 
 ```ts
 const responsePromise = page.waitForResponse('**/api/orders');
@@ -224,7 +233,7 @@ expect((await responsePromise).ok()).toBeTruthy();
 - Expose locators as readonly properties/getters; expose intent-revealing actions (`login()`, `addToCart()`), not raw click wrappers.
 - Take `page` (or fixtures) via the constructor — no global page.
 - Pick one convention for navigation actions (return the next Page Object, or return `void` and let the test instantiate it) and stay consistent.
-- Keep behavioral assertions in the spec. *Exception:* a small `expectLoaded()`-style self-check on a Page Object is fine.
+- Keep behavioral assertions in the spec. _Exception:_ a small `expectLoaded()`-style self-check on a Page Object is fine.
 - No test logic, test data, or business-rule conditionals inside a Page Object.
 
 ```ts
@@ -256,43 +265,19 @@ export class LoginPage {
 
 ---
 
-## 9. Fixtures - MUST
+## 9. Fixtures
 
 ### Framework Architecture
 
 ### Fixture-Based Design
+
 - Use `test.extend<Fixtures>()` to compose Page Objects and shared setup
 - Fixtures typed explicitly via a `Fixtures` interface — no implicit `any`
 - Page Objects are instantiated inside fixtures, not inside test bodies
 - Base fixture file (e.g. `fixtures/base.ts`) merges all page object fixtures + custom fixtures (auth, API clients, test data)
 - Tests import the extended `test` from the fixture file, not from `@playwright/test` directly
 
-Example shape:
-```typescript
-// fixtures/base.ts
-import { test as base } from '@playwright/test';
-import { LoginPage } from '../pages/login.page';
-import { CartPage } from '../pages/cart.page';
-
-type Fixtures = {
-  loginPage: LoginPage;
-  cartPage: CartPage;
-};
-
-export const test = base.extend<Fixtures>({
-  loginPage: async ({ page }, use) => {
-    await use(new LoginPage(page));
-  },
-  cartPage: async ({ page }, use) => {
-    await use(new CartPage(page));
-  },
-});
-
-export { expect } from '@playwright/test';
-```
-
-- Worker-scoped fixtures (`{ scope: 'worker' }`) for expensive setup shared across tests (e.g. API auth tokens)
-- Auto-fixtures (`{ auto: true }`) for things every test needs without importing (e.g. tracing, logging)
+````
 
 ### CI Enforcement
 - Lint step runs before test execution in the pipeline; **pipeline fails on any ESLint error** (not just warnings)
@@ -302,7 +287,7 @@ export { expect } from '@playwright/test';
 
 ---
 
-## 10. Test Structure & Tagging
+### 10. Test Structure & Tagging
 
 - One meaningful behavior per test — don't chain unrelated assertions.
 - Arrange-Act-Assert, visually distinct.
@@ -317,11 +302,9 @@ export { expect } from '@playwright/test';
 test('critical login path', { tag: '@smoke' }, async ({ loginPage }) => {
   await test.step('log in', async () => { /* ... */ });
 });
-```
+````
 
----
-
-## 11. Test Data Management - MUST
+## 11. Test Data Management
 
 - Generate data (e.g. `@faker-js/faker`); don't hardcode it, so parallel runs don't collide.
 - Each test owns its data lifecycle — create via API where possible (see §14), clean up in teardown.
@@ -340,7 +323,7 @@ export function buildUser(overrides: Partial<User> = {}): User {
 
 ---
 
-## 12. Configuration (`playwright.config.ts`) -MUST
+## 12. Configuration (`playwright.config.ts`)
 
 Centralize run config; keep environment-specific values in env vars.
 
@@ -359,10 +342,7 @@ export default defineConfig({
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
   },
-  projects: [
-    { name: 'setup', testMatch: /global\.setup\.ts/ },
-    { name: 'chromium', use: { ...devices['Desktop Chrome'], storageState: '.auth/user.json' }, dependencies: ['setup'] },
-  ],
+  projects: [{ name: 'chromium' }],
 });
 ```
 
@@ -373,23 +353,8 @@ export default defineConfig({
 
 ---
 
-## 13. Authentication & Session Reuse
+## 13. Secret handling
 
-- Log in once in a **setup project**, save `storageState`, and have other projects consume it. Don't log in through the UI in every test.
-- One storage-state file per role (admin, standard user, etc.).
-- For tests that must exercise the login UI itself, opt out with `test.use({ storageState: { cookies: [], origins: [] } })`.
-
-```ts
-// tests/global.setup.ts
-setup('authenticate', async ({ page }) => {
-  const login = new LoginPage(page);
-  await login.goto();
-  await login.login(process.env.E2E_USER!, process.env.E2E_PASSWORD!);
-  await page.context().storageState({ path: '.auth/user.json' });
-});
-```
-
-### 13a. Secret handling
 - Credentials come only from env vars — never committed.
 - `.auth/` (live session tokens) **must** be git-ignored.
 
@@ -409,7 +374,7 @@ test('displays orders created via API', async ({ page, request }) => {
 });
 ```
 
-- Assert on status *and* response body/schema, not just status.
+- Assert on status _and_ response body/schema, not just status.
 - Reuse an authenticated `request` context via a fixture rather than re-authing per call.
 
 ---
@@ -421,8 +386,8 @@ test('displays orders created via API', async ({ page, request }) => {
 - Prefer HAR replay (`routeFromHAR`) over hand-written fixtures for large response sets.
 
 ```ts
-await page.route('**/api/payments', route =>
-  route.fulfill({ status: 200, json: { status: 'approved' } })
+await page.route('**/api/payments', (route) =>
+  route.fulfill({ status: 200, json: { status: 'approved' } }),
 );
 ```
 
@@ -434,7 +399,6 @@ await page.route('**/api/payments', route =>
 - Mask dynamic regions (dates, avatars); keep `maxDiffPixelRatio` small to avoid noise.
 - Generate/update baselines in the same OS/browser as CI (fonts and anti-aliasing differ across platforms).
 - Keep visual tests in their own tagged group (`@visual`).
-
 
 ## 17. Parallelism & Isolation
 
@@ -515,7 +479,7 @@ Reach for these instead of `console.log` + sleeps:
 ## 23. Security & Secrets
 
 - No credentials, tokens, or PII in the repo — including test data files.
-- All secrets via env vars / CI secret store; `.env.example` documents variable *names* only.
+- All secrets via env vars / CI secret store; `.env.example` documents variable _names_ only.
 - Rotate any secret that lands in git history.
 - Least-privilege test accounts and CI tokens, scoped to the test environment.
 
@@ -529,30 +493,12 @@ Reach for these instead of `console.log` + sleeps:
 
 ---
 
-## 25. Forbidden List
-
-- `page.waitForTimeout()` / hard sleeps
-- XPath, `nth-child`/structural CSS, or styling-class locators
-- Non-retrying assertions on extracted values
-- Missing `await` on Playwright calls / floating promises
-- `any`, unexplained `!`, or loosened `strict` settings
-- Tests depending on execution order or another test's data
-- Shared mutable state; reusing one context to "stay logged in"
-- Assertions buried in Page Objects (beyond `expectLoaded()`)
-- Secrets or real PII committed anywhere
-- Committed `test.only`; `test.skip`/`fixme` without a reason + ticket
-- Logging in through the UI in every test instead of `storageState`
-- Raising `retries` or adding waits to hide flakiness
-
----
-
 ## 26. Definition of Done
 
 - [ ] Tests are independent, isolated, pass with `--fully-parallel` in any order.
 - [ ] Locators follow §5 priority order; no XPath/brittle CSS.
 - [ ] Only web-first, awaited assertions; zero `waitForTimeout`.
 - [ ] Page Objects hold locators/actions; specs hold intent + assertions.
-- [ ] Reusable setup uses fixtures; expensive auth uses `storageState`.
 - [ ] Each test creates and cleans up its own data.
 - [ ] `strict` TypeScript passes; no `any`; lint/typecheck/format clean.
 - [ ] No secrets committed; new env vars documented in `.env.example`.
@@ -569,9 +515,9 @@ Reach for these instead of `console.log` + sleeps:
 3. If a rule here conflicts with a request, surface the conflict and propose a compliant alternative.
 4. When something isn't covered here, follow official Playwright best-practice guidance and note the decision so this document can be updated.
 5. Follow the below browser rules
-    #No Browser rule
-    Never use browser action tool
-    Never take browser screenshot
-    Never send browser url to API request
-    Only write and edit code in directly in files
-    Do not open or launch any browser to test code
+   #No Browser rule
+   Never use browser action tool
+   Never take browser screenshot
+   Never send browser url to API request
+   Only write and edit code in directly in files
+   Do not open or launch any browser to test code

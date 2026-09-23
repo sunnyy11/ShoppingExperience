@@ -1,4 +1,4 @@
-import { test, expect } from '@fixtures/test-options';
+import { test, expect } from '@fixtures/pom-fixtures';
 import { getConfiguredUser } from '@data/test-user';
 
 test.setTimeout(120_000);
@@ -6,6 +6,7 @@ test.setTimeout(120_000);
 test.describe('Automation Exercise login', () => {
   test('logs in with the registered user and verifies Delete Account is available', async ({
     page,
+    loginPage,
   }) => {
     const user = getConfiguredUser();
 
@@ -18,9 +19,7 @@ test.describe('Automation Exercise login', () => {
     });
 
     await test.step('log in with the registered credentials', async () => {
-      await page.locator('[data-qa="login-email"]').fill(user.email);
-      await page.locator('[data-qa="login-password"]').fill(user.password);
-      await page.getByRole('button', { name: 'Login' }).click();
+      await loginPage.login(user.email, user.password);
       await expect(page.getByText(/Logged in as/i)).toBeVisible();
     });
 

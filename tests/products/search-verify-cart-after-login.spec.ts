@@ -1,5 +1,5 @@
-import { expect, test } from '@fixtures/test-options';
-import { getConfiguredUser } from '@data/test-user';
+import { expect, test } from '@fixtures/pom-fixtures';
+import { getUserForWorker } from '@data/test-user';
 
 test.setTimeout(120_000);
 
@@ -10,8 +10,8 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     page,
     productsPage,
     cartPage,
-  }) => {
-    const user = getConfiguredUser();
+  }, testInfo) => {
+    const user = getUserForWorker(testInfo.workerIndex);
 
     await test.step('open the home page', async () => {
       await page.goto('/');
@@ -51,7 +51,13 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     await test.step('click Cart button and verify that products are visible in cart', async () => {
       await productsPage.openCart();
       await cartPage.expectLoaded();
-      await cartPage.verifyCartHasProducts(addedProducts);
+      await cartPage.clearOverlays();
+      for (const product of addedProducts) {
+        const row = cartPage.getProductRow(product.name);
+        await expect(row).toHaveCount(1);
+        await expect(row.locator('h4')).toContainText(product.name);
+        await expect(row.locator('td.cart_price p')).toContainText(product.price);
+      }
     });
 
     await test.step('click Signup / Login button and submit login details', async () => {
@@ -70,7 +76,13 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     });
 
     await test.step('verify that those products are visible in cart after login as well', async () => {
-      await cartPage.verifyCartHasProducts(addedProducts);
+      await cartPage.clearOverlays();
+      for (const product of addedProducts) {
+        const row = cartPage.getProductRow(product.name);
+        await expect(row).toHaveCount(1);
+        await expect(row.locator('h4')).toContainText(product.name);
+        await expect(row.locator('td.cart_price p')).toContainText(product.price);
+      }
     });
   });
 });

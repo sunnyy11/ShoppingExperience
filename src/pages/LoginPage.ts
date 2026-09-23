@@ -8,9 +8,9 @@ export class LoginPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.email = page.getByRole('textbox', { name: 'Email Address' });
-    this.password = page.getByRole('textbox', { name: 'Password' });
-    this.submit = page.getByRole('button', { name: 'Sign In' });
+    this.email = page.locator('[data-qa="login-email"]');
+    this.password = page.locator('[data-qa="login-password"]');
+    this.submit = page.getByRole('button', { name: 'Login' });
   }
 
   async goto(): Promise<void> {
@@ -21,11 +21,5 @@ export class LoginPage {
     await this.email.fill(email);
     await this.password.fill(password);
     await this.submit.click();
-  }
-
-  async loginAutomationExercise(email: string, password: string): Promise<void> {
-    await this.page.locator('[data-qa="login-email"]').fill(email);
-    await this.page.locator('[data-qa="login-password"]').fill(password);
-    await this.page.getByRole('button', { name: 'Login' }).click();
   }
 }

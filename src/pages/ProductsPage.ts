@@ -1,7 +1,5 @@
 import { type Locator, type Page, expect } from '@playwright/test';
 
-const PRODUCT_CARDS = 'div:has(> img):has(> h2):has(> p):has(> a[data-product-id])';
-
 export interface ProductInfo {
   name: string;
   price: string;
@@ -21,10 +19,10 @@ export class ProductsPage {
   constructor(page: Page) {
     this.page = page;
     this.productsHeading = page.getByRole('heading', { name: 'All Products' });
-    this.searchInput = page.locator('#search_product');
+    this.searchInput = page.getByRole('textbox', { name: 'Search Product' });
     this.searchButton = page.locator('#submit_search');
     this.searchedProductsHeading = page.getByRole('heading', { name: 'Searched Products' });
-    this.productCards = page.locator(PRODUCT_CARDS);
+    this.productCards = page.locator('.features_items .col-sm-4');
     this.viewCartLink = page.getByRole('link', { name: 'View Cart' });
     this.cartLink = page.getByRole('link', { name: 'Cart' });
     this.signupLoginLink = page.getByRole('link', { name: /signup\s*\/\s*login/i });
@@ -40,9 +38,12 @@ export class ProductsPage {
   }
 
   async search(productName: string): Promise<void> {
+    await this.clearOverlays();
+    await this.searchInput.waitFor({ state: 'visible', timeout: 15000 });
     await this.searchInput.fill(productName);
+    await this.searchButton.waitFor({ state: 'visible', timeout: 15000 });
     await this.searchButton.click();
-    await expect(this.searchedProductsHeading).toBeVisible();
+    await this.searchedProductsHeading.waitFor({ state: 'visible', timeout: 15000 });
   }
 
   async getSearchedProductsCount(): Promise<number> {
@@ -50,24 +51,40 @@ export class ProductsPage {
   }
 
   async getFirstSearchedProductName(): Promise<string> {
-    return await this.productCards.nth(0).locator('p').nth(0).innerText();
+    return await this.productCards.first().locator('p').first().innerText();
   }
 
   async addProductToCart(index: number): Promise<ProductInfo> {
     const productCard = this.productCards.nth(index);
-    const name = await productCard.locator('p').nth(0).innerText();
-    const price = await productCard.locator('h2').nth(0).innerText();
+    const name = await productCard.locator('p').first().innerText();
+    const price = await productCard.locator('h2').first().innerText();
 
+    await this.clearOverlays();
     await productCard.hover();
-    await productCard.locator('a[data-product-id]').nth(0).evaluate((el: HTMLElement) => el.click());
 
-    const cancelBtn = this.page.getByRole('button', { name: 'Cancel' });
-    if (await cancelBtn.isVisible().catch(() => false)) {
-        await cancelBtn.click();
+    const addToCartLink = productCard.locator('.overlay-content a.add-to-cart').first();
+    await addToCartLink.waitFor({ state: 'visible', timeout: 10000 });
+
+    const responsePromise = this.page.waitForResponse(
+      (response) =>
+        response.request().method() === 'GET' && /\/add_to_cart\/\d+$/.test(response.url()),
+      { timeout: 15000 },
+    );
+    await addToCartLink.click();
+    const response = await responsePromise;
+
+    if (!response.ok()) {
+      throw new Error(`Failed to add product ${name} to the cart: HTTP ${response.status()}`);
     }
 
-    await expect(this.page.getByRole('heading', { name: 'Added!' })).toBeVisible();
-    await this.page.getByRole('button', { name: 'Continue Shopping' }).click();
+    await this.page
+      .getByRole('heading', { name: 'Added!' })
+      .waitFor({ state: 'visible', timeout: 3000 })
+      .catch(() => undefined);
+    await this.page
+      .getByRole('button', { name: 'Continue Shopping' })
+      .click({ timeout: 3000 })
+      .catch(() => undefined);
 
     return { name, price };
   }
@@ -84,15 +101,39 @@ export class ProductsPage {
     return products;
   }
 
+  async clearOverlays(): Promise<void> {
+    await this.page.evaluate(() => {
+      const adSelectors = [
+        '.google-auto-placed',
+        'ins.adsbygoogle',
+        'iframe[id^="aswift"]',
+        '.modal-backdrop',
+        '#cartModal',
+        '.modal-open',
+        '.ad-slot',
+        'div[id*="google_ads"]',
+        'div[class*="ad-container"]',
+      ];
+      adSelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((el) => el.remove());
+      });
+      document.body.classList.remove('modal-open');
+    });
+  }
+
   async openCart(): Promise<void> {
     await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
   }
 
   async openCartFromHeader(): Promise<void> {
+    await this.clearOverlays();
     await this.cartLink.click();
   }
 
   async openSignupLogin(): Promise<void> {
+    await this.clearOverlays();
+    await this.page.waitForLoadState('domcontentloaded');
+    await this.signupLoginLink.waitFor({ state: 'visible', timeout: 15000 });
     await this.signupLoginLink.click();
   }
 }

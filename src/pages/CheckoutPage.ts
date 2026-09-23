@@ -1,5 +1,14 @@
 import { type Locator, type Page } from '@playwright/test';
 
+export interface ShippingDetails {
+  email: string;
+  firstName: string;
+  lastName: string;
+  company: string;
+  address: string;
+  phone: string;
+}
+
 export class CheckoutPage {
   readonly page: Page;
   readonly email: Locator;
@@ -19,29 +28,78 @@ export class CheckoutPage {
     this.company = page.getByPlaceholder('Company (optional)');
     this.address = page.getByPlaceholder('Address');
     this.phone = page.getByPlaceholder('Phone (optional)');
-    this.billingAddress = page.getByLabel('Use shipping address as billing address');
-    this.payNow = page.getByRole('button', { name: 'Pay now' });
+    this.billingAddress = page.getByRole('checkbox', { name: /billing address/i });
+    this.payNow = page.getByRole('button', { name: 'Pay and Confirm Order' });
   }
 
-  async fillShipping(email: string): Promise<void> {
-    await this.email.fill(email);
-    await this.firstName.fill('Test');
-    await this.lastName.fill('User');
-    await this.company.fill('Test Company');
-    await this.address.fill('Vadodara');
-    await this.page.locator('li').getByText('Vadodara', { exact: true }).click();
-    await this.phone.fill('9876543210');
+  async fillShipping(details: ShippingDetails): Promise<void> {
+    await this.clearOverlays();
+
+    // Wait for the form to be fully ready
+    await this.email.waitFor({ state: 'visible', timeout: 20000 });
+
+    // Use a force-fill strategy to bypass possible invisible overlays
+    await this.email.fill(details.email);
+    await this.firstName.fill(details.firstName);
+    await this.lastName.fill(details.lastName);
+    await this.company.fill(details.company);
+    await this.address.fill(details.address);
+
+    // The address dropdown often takes a moment to appear
+    const addressOption = this.page
+      .locator('li')
+      .getByText(details.address, { exact: true })
+      .first();
+    await addressOption.waitFor({ state: 'visible', timeout: 10000 });
+    await addressOption.click();
+
+    await this.phone.fill(details.phone);
   }
 
-  async fillPayment(): Promise<void> {
-    await this.page.getByLabel(/Card number/i).fill('1');
-    await this.page.getByLabel(/Expiration date/i).fill('12/30');
-    await this.page.getByLabel(/Security code/i).fill('123');
-    await this.page.getByLabel(/Name on card/i).fill('Test User');
+  async fillPayment(cardDetails: {
+    name: string;
+    number: string;
+    cvc: string;
+    month: string;
+    year: string;
+  }): Promise<void> {
+    await this.clearOverlays();
+    await this.page.locator('input[name="name_on_card"]').fill(cardDetails.name);
+    await this.page.locator('input[name="card_number"]').fill(cardDetails.number);
+    await this.page.locator('input[name="cvc"]').fill(cardDetails.cvc);
+    await this.page.locator('input[name="expiry_month"]').fill(cardDetails.month);
+    await this.page.locator('input[name="expiry_year"]').fill(cardDetails.year);
+  }
+
+  async addOrderMessage(message: string): Promise<void> {
+    await this.page.locator('textarea[name="message"]').fill(message);
+  }
+
+  async placeOrder(): Promise<void> {
+    await this.page.getByRole('link', { name: 'Place Order' }).click();
   }
 
   async pay(): Promise<void> {
-    await this.billingAddress.check();
-    await this.payNow.click();
+    await this.clearOverlays();
+    const payButton = this.payNow.or(this.page.locator('button:has-text("Pay Now")'));
+    await payButton.waitFor({ state: 'visible', timeout: 15000 });
+    await payButton.click();
+  }
+
+  async clearOverlays(): Promise<void> {
+    await this.page.evaluate(() => {
+      const adSelectors = [
+        '.google-auto-placed',
+        'ins.adsbygoogle',
+        'iframe[id^="aswift"]',
+        '.modal-backdrop',
+        '#cartModal',
+        '.modal-open',
+      ];
+      adSelectors.forEach((selector) => {
+        document.querySelectorAll(selector).forEach((el) => el.remove());
+      });
+      document.body.classList.remove('modal-open');
+    });
   }
 }

@@ -8,6 +8,8 @@ node_modules/
 /playwright/.auth/
 .playwright-mcp/
 .auth/
+.claude/
+.kilo/
 .env
 .env.*
 !.env.example
