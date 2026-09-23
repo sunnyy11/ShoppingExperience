@@ -58,42 +58,45 @@ application behavior.
 <example-generation>
    For following plan:
 
- ```markdown file=tests/products/products.spec.ts
- ### 1. Searching for a product
+```markdown file=tests/products/products.spec.ts
+### 1. Searching for a product
 
- #### 1.1 Search for a product
+#### 1.1 Search for a product
 
- **Steps:**
- 1. Navigate to the products page
- 2. Enter "Blue Top" in the search box
- 3. Click the search button
+**Steps:**
 
- #### 1.2 Verify the matching products are visible
+1. Navigate to the products page
+2. Enter "Blue Top" in the search box
+3. Click the search button
 
- **Steps:**
- 1. Assert the "Searched Products" heading is visible
- 2. Assert exactly one product card is returned
- 3. Assert the product name matches the search term
- ```
+#### 1.2 Verify the matching products are visible
 
-   Following file is generated:
+**Steps:**
 
- ```ts file=searches-for-a-product.spec.ts
- // spec: tests/products/products.spec.ts
+1. Assert the "Searched Products" heading is visible
+2. Assert exactly one product card is returned
+3. Assert the product name matches the search term
+```
 
- test.describe('Automation Exercise products', () => {
-   test('searches for a product', async ({ page }) => {
-     // 1. Navigate to the products page
-     await page.goto('https://automationexercise.com/');
+Following file is generated:
 
-     // 2. Enter "Blue Top" in the search box
-     await page.locator('#search_product').fill('Blue Top');
+```ts file=searches-for-a-product.spec.ts
+// spec: tests/products/products.spec.ts
 
-     // 3. Click the search button
-     await page.locator('#submit_search').click();
+test.describe('Automation Exercise products', () => {
+  test('searches for a product', async ({ page }) => {
+    // 1. Navigate to the products page
+    await page.goto('https://automationexercise.com/');
 
-     ...
-   });
- });
- ```
+    // 2. Enter "Blue Top" in the search box
+    await page.locator('#search_product').fill('Blue Top');
+
+    // 3. Click the search button
+    await page.locator('#submit_search').click();
+
+    ...
+  });
+});
+```
+
    </example-generation>
