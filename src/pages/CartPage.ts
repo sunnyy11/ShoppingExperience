@@ -51,7 +51,10 @@ export class CartPage {
         '.modal-backdrop, .modal-open, #cartModal, .google-auto-placed',
       );
       overlays.forEach((el) => el.remove());
-      document.body.classList.remove('modal-open');
+      const body = document.querySelector('body');
+      if (body) {
+        body.classList.remove('modal-open');
+      }
     });
   }
 

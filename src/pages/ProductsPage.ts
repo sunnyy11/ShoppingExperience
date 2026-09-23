@@ -117,7 +117,7 @@ export class ProductsPage {
       adSelectors.forEach((selector) => {
         document.querySelectorAll(selector).forEach((el) => el.remove());
       });
-      document.body.classList.remove('modal-open');
+      document.querySelector('body')?.classList.remove('modal-open');
     });
   }
 

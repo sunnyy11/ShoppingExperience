@@ -99,7 +99,12 @@ export class CheckoutPage {
       adSelectors.forEach((selector) => {
         document.querySelectorAll(selector).forEach((el) => el.remove());
       });
-      document.body.classList.remove('modal-open');
+      const body = document.querySelector('body');
+      if (body) {
+        body.classList.remove('modal-open');
+        const modal = body.querySelector('.modal-open');
+        if (modal) modal.classList.remove('modal-open');
+      }
     });
   }
 }
