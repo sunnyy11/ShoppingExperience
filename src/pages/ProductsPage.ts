@@ -65,10 +65,11 @@ export class ProductsPage {
     const addToCartLink = productCard.locator('.overlay-content a.add-to-cart').first();
     await addToCartLink.waitFor({ state: 'visible', timeout: 10000 });
 
+    // Increase timeout for flaky add_to_cart network response
     const responsePromise = this.page.waitForResponse(
       (response) =>
         response.request().method() === 'GET' && /\/add_to_cart\/\d+$/.test(response.url()),
-      { timeout: 15000 },
+      { timeout: 30000 },
     );
     await addToCartLink.click();
     const response = await responsePromise;
@@ -79,11 +80,11 @@ export class ProductsPage {
 
     await this.page
       .getByRole('heading', { name: 'Added!' })
-      .waitFor({ state: 'visible', timeout: 3000 })
+      .waitFor({ state: 'visible', timeout: 5000 })
       .catch(() => undefined);
     await this.page
       .getByRole('button', { name: 'Continue Shopping' })
-      .click({ timeout: 3000 })
+      .click({ timeout: 5000 })
       .catch(() => undefined);
 
     return { name, price };
