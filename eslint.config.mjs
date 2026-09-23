@@ -11,6 +11,8 @@ export default [
       'blob-report/**',
       '.auth/**',
       '.playwright-mcp/**',
+      '.claude/worktrees/**',
+      '.kilo/worktrees/**',
     ],
   },
   {

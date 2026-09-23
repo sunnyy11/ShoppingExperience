@@ -113,7 +113,6 @@ test.describe('Automation Exercise checkout', () => {
     });
   });
 
-  
   test('verify that delivery and billing address are same', async ({
     page,
     productsPage,
