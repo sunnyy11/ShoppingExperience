@@ -1,9 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { OtpLoginPage } from '@pages/OtpLoginPage';
-import {
-  generateEmailAddress,
-  waitForEmail,
-} from '@support/mailosaur';
+import { generateEmailAddress, waitForEmail } from '@support/mailosaur';
 
 test.setTimeout(120_000);
 

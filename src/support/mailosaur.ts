@@ -28,11 +28,7 @@ export function generateEmailAddress(): string {
   return client.servers.generateEmailAddress(serverId);
 }
 
-export async function waitForEmail(
-  sentTo: string,
-  timeout = 30_000,
-  pollInterval = 2_000
-) {
+export async function waitForEmail(sentTo: string, timeout = 30_000, pollInterval = 2_000) {
   const client = getMailosaurClient();
   const serverId = getServerId();
   const deadline = Date.now() + timeout;
