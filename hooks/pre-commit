@@ -1,0 +1,13 @@
+#!/bin/sh
+# Pre-commit hook: auto-format code with Prettier before committing
+
+echo "Running Prettier to format code..."
+npx prettier --write .
+
+# Check if there are changes after formatting
+if ! git diff --quiet; then
+  echo "Prettier made changes. Staging formatted files..."
+  git add .
+fi
+
+echo "Pre-commit checks passed."
