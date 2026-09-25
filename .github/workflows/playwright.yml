@@ -130,19 +130,9 @@ jobs:
         run: find blob-reports -path "*/blob-report/*.zip" -exec cp {} blob-reports/ \;
 
       - name: Merge reports
-        run: npx playwright merge-reports blob-reports --reporter html
-
-      - name: Download JUnit results
-        uses: actions/download-artifact@v4
-        with:
-          path: junit-results
-          pattern: junit-results-shard-*
-
-      - name: Merge JUnit results
-        run: |
-          mkdir -p merged-junit
-          find junit-results -name "results.xml" -exec cp {} merged-junit/ \;
-          npx playwright merge-reports merged-junit --reporter junit --output merged-junit/merged-results.xml
+        run: npx playwright merge-reports blob-reports --reporter html,junit
+        env:
+          PLAYWRIGHT_JUNIT_OUTPUT_NAME: merged-results.xml
 
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
@@ -155,5 +145,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: junit-results
-          path: merged-junit/merged-results.xml
+          path: merged-results.xml
           retention-days: 7
