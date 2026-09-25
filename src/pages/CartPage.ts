@@ -27,17 +27,19 @@ export class CartPage {
 
   async expectLoaded(): Promise<void> {
     await this.page.waitForURL('**/view_cart**');
+    await this.page.waitForLoadState('load');
 
     // Force remove any persistent overlays
     await this.clearOverlays();
 
     try {
       await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
-    } catch (e) {
+    } catch {
       // If the table isn't found, reload the page once.
       // This often fixes session-related loading issues on this site.
-      await this.page.reload();
+      await this.page.reload({ waitUntil: 'load' });
       await this.page.waitForURL('**/view_cart**');
+      await this.page.waitForLoadState('load');
       await this.clearOverlays();
       await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
     }
@@ -107,7 +109,7 @@ export class CartPage {
   }
 
   async clearCart(): Promise<void> {
-    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
+    await this.page.goto('/view_cart', { waitUntil: 'load' });
     await this.clearOverlays();
 
     while ((await this.getCartRowCount()) > 0) {

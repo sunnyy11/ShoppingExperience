@@ -29,7 +29,7 @@ export class ProductsPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto('/products', { waitUntil: 'domcontentloaded' });
+    await this.page.goto('/products', { waitUntil: 'load' });
     await this.expectLoaded();
   }
 
@@ -123,7 +123,7 @@ export class ProductsPage {
   }
 
   async openCart(): Promise<void> {
-    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
+    await this.page.goto('/view_cart', { waitUntil: 'load' });
   }
 
   async openCartFromHeader(): Promise<void> {
