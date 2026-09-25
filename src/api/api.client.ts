@@ -1,5 +1,4 @@
 import { type APIRequestContext, type APIResponse } from '@playwright/test';
-import { env } from '@config/env';
 
 export class ApiClient {
   readonly request: APIRequestContext;
@@ -7,7 +6,7 @@ export class ApiClient {
 
   constructor(request: APIRequestContext) {
     this.request = request;
-    this.baseURL = env.baseURL;
+    this.baseURL = process.env.BASE_URL ?? 'https://automationexercise.com';
   }
 
   async createAccount(userData: {

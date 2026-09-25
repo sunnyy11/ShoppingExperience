@@ -120,7 +120,7 @@ const extendedTest = base.extend<Pages, WorkerFixtures>({
         fs.unlinkSync(authFile);
       }
     },
-    { scope: 'worker' },
+    { scope: 'worker', timeout: 180_000 },
   ],
 
   cartPage: async ({ page }, use) => use(new CartPage(page)),
