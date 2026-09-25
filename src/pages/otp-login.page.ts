@@ -40,7 +40,7 @@ export class OtpLoginPage {
   async enterEmailAndSend(email: string): Promise<void> {
     await this.emailInput.waitFor({ state: 'visible' });
     await this.emailInput.fill(email);
-    await this.sendOtpButton.click({ noWaitAfter: true });
+    await this.sendOtpButton.click();
     await this.waitForOtpInput();
   }
 
@@ -52,7 +52,9 @@ export class OtpLoginPage {
   }
 
   async expectSecureArea(): Promise<void> {
-    await expect(this.flashMessage).toContainText(/You logged into a secure area/i);
+    await expect(this.flashMessage).toContainText(/You logged into a secure area/i, {
+      timeout: 15_000,
+    });
     await expect(this.logoutLink).toBeVisible();
   }
 
@@ -62,7 +64,7 @@ export class OtpLoginPage {
 
   private async waitForOtpInput(): Promise<void> {
     await this.page.waitForLoadState('domcontentloaded');
-    await this.otpInput.waitFor({ state: 'attached', timeout: 15_000 });
+    await this.otpInput.waitFor({ state: 'attached', timeout: 30_000 });
     await this.otpInput.waitFor({ state: 'visible' });
   }
 

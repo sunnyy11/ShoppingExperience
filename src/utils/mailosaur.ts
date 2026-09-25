@@ -26,7 +26,11 @@ export function getServerId(): string {
 export function generateEmailAddress(): string {
   const client = getMailosaurClient();
   const serverId = getServerId();
-  return client.servers.generateEmailAddress(serverId);
+  const address = client.servers.generateEmailAddress(serverId);
+
+  // Mailosaur returns "local@=serverid.mailosaur.net" for this server; the
+  // stray "=" makes the target site's client-side validation reject the address.
+  return address.replace('@=', '@');
 }
 
 export async function waitForEmail(
