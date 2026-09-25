@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   pull_request:
 
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   BASE_URL: https://automationexercise.com
 
@@ -65,12 +69,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Cache Playwright browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: ${{ runner.os }}-playwright-${{ hashFiles('package-lock.json') }}
-
       - name: Install Playwright browsers
         run: npx playwright install --with-deps chromium
 
@@ -93,7 +91,14 @@ jobs:
           path: |
             test-results/
             blob-report/
-            results.xml
+          retention-days: 7
+
+      - name: Upload JUnit results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results-shard-${{ matrix.shard }}
+          path: results.xml
           retention-days: 7
 
   merge-reports:
@@ -127,9 +132,28 @@ jobs:
       - name: Merge reports
         run: npx playwright merge-reports blob-reports --reporter html
 
+      - name: Download JUnit results
+        uses: actions/download-artifact@v4
+        with:
+          path: junit-results
+          pattern: junit-results-shard-*
+
+      - name: Merge JUnit results
+        run: |
+          mkdir -p merged-junit
+          find junit-results -name "results.xml" -exec cp {} merged-junit/ \;
+          npx playwright merge-reports merged-junit --reporter junit --output merged-junit/merged-results.xml
+
       - name: Upload merged HTML report
         uses: actions/upload-artifact@v4
         with:
           name: playwright-report
           path: playwright-report/
+          retention-days: 7
+
+      - name: Upload merged JUnit results
+        uses: actions/upload-artifact@v4
+        with:
+          name: junit-results
+          path: merged-junit/merged-results.xml
           retention-days: 7

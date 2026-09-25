@@ -1,7 +1,5 @@
-import { expect, test } from '@fixtures/pom-fixtures';
-import { getUserForWorker } from '@data/test-user';
-
-test.setTimeout(120_000);
+import { expect, test } from '@fixtures';
+import { getUserForWorker } from '@data/test-user.factory';
 
 const SEARCH_TERM = 'Blue Top';
 
@@ -38,8 +36,8 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     await test.step('verify all the products related to search are visible', async () => {
       const count = await productsPage.getSearchedProductsCount();
       expect(count).toBeGreaterThan(0);
-      const firstProductName = await productsPage.getFirstSearchedProductName();
-      expect(firstProductName).toContain(SEARCH_TERM);
+      await expect(productsPage.getProductCard(SEARCH_TERM)).toHaveCount(1);
+      await expect(productsPage.getProductNameElement(SEARCH_TERM)).toHaveText(SEARCH_TERM);
     });
 
     let addedProducts: { name: string; price: string }[] = [];
@@ -51,7 +49,6 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     await test.step('click Cart button and verify that products are visible in cart', async () => {
       await productsPage.openCart();
       await cartPage.expectLoaded();
-      await cartPage.clearOverlays();
       for (const product of addedProducts) {
         const row = cartPage.getProductRow(product.name);
         await expect(row).toHaveCount(1);
@@ -76,7 +73,6 @@ test.describe('Automation Exercise - Search Products and Verify Cart After Login
     });
 
     await test.step('verify that those products are visible in cart after login as well', async () => {
-      await cartPage.clearOverlays();
       for (const product of addedProducts) {
         const row = cartPage.getProductRow(product.name);
         await expect(row).toHaveCount(1);

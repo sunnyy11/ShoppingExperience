@@ -1,7 +1,7 @@
-import { getUserForWorker, buildShippingDetails, buildPaymentDetails } from '@data/test-user';
-import { expect, test } from '@fixtures/auth.fixture';
+import { buildPaymentDetails } from '@data/test-user.factory';
+import { expect, authenticatedTest as test } from '@fixtures';
 
-test.setTimeout(120_000);
+const CART_PRODUCTS = ['Blue Top', 'Men Tshirt'] as const;
 
 test.describe('Automation Exercise checkout', () => {
   test('places an order after logging in', async ({
@@ -12,7 +12,6 @@ test.describe('Automation Exercise checkout', () => {
     workerUser,
   }) => {
     const user = workerUser;
-    const shipping = buildShippingDetails(user);
     const payment = buildPaymentDetails(user);
 
     await test.step('navigate to products page', async () => {
@@ -22,8 +21,8 @@ test.describe('Automation Exercise checkout', () => {
     });
 
     await test.step('add two products to the cart', async () => {
-      for (let i = 0; i < 2; i++) {
-        await productsPage.addProductToCart(i);
+      for (const productName of CART_PRODUCTS) {
+        await productsPage.addProductToCart(productName);
       }
     });
 
@@ -69,8 +68,8 @@ test.describe('Automation Exercise checkout', () => {
     });
 
     await test.step('add two products to the cart', async () => {
-      for (let i = 0; i < 2; i++) {
-        await productsPage.addProductToCart(i);
+      for (const productName of CART_PRODUCTS) {
+        await productsPage.addProductToCart(productName);
       }
     });
 
@@ -117,8 +116,6 @@ test.describe('Automation Exercise checkout', () => {
     page,
     productsPage,
     cartPage,
-    checkoutPage,
-    workerUser,
   }) => {
     await test.step('navigate to products page', async () => {
       await page.goto('/');
@@ -127,8 +124,8 @@ test.describe('Automation Exercise checkout', () => {
     });
 
     await test.step('add products to the cart', async () => {
-      for (let i = 0; i < 2; i++) {
-        await productsPage.addProductToCart(i);
+      for (const productName of CART_PRODUCTS) {
+        await productsPage.addProductToCart(productName);
       }
     });
 

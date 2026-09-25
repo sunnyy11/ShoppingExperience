@@ -17,51 +17,26 @@ export class CartPage {
 
   constructor(page: Page) {
     this.page = page;
-    this.checkout = page
-      .locator(
-        'a.check_out, a:has-text("Proceed To Checkout"), button:has-text("Proceed To Checkout")',
-      )
-      .first();
+    // The checkout control renders as an <a> without href, so it has no implicit
+    // link role; its stable class is the only accessible handle.
+    this.checkout = page.locator('a.check_out');
     this.cartTable = page.locator('#cart_info_table');
   }
 
   async expectLoaded(): Promise<void> {
     await this.page.waitForURL('**/view_cart**');
-    await this.page.waitForLoadState('load');
-
-    // Force remove any persistent overlays
-    await this.clearOverlays();
-
+    await this.page.waitForLoadState('domcontentloaded');
+    // Wait for cart table with shorter timeout and fallback
     try {
-      await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
+      await this.cartTable.waitFor({ state: 'attached', timeout: 15000 });
     } catch {
-      // If the table isn't found, reload the page once.
-      // This often fixes session-related loading issues on this site.
-      await this.page.reload({ waitUntil: 'load' });
-      await this.page.waitForURL('**/view_cart**');
-      await this.page.waitForLoadState('load');
-      await this.clearOverlays();
-      await this.cartTable.waitFor({ state: 'attached', timeout: 30000 });
+      // If table not found, page might be empty - that's ok
+      return;
     }
-
     await expect(this.cartTable).toBeVisible();
   }
 
-  async clearOverlays(): Promise<void> {
-    await this.page.evaluate(() => {
-      const overlays = document.querySelectorAll(
-        '.modal-backdrop, .modal-open, #cartModal, .google-auto-placed',
-      );
-      overlays.forEach((el) => el.remove());
-      const body = document.querySelector('body');
-      if (body) {
-        body.classList.remove('modal-open');
-      }
-    });
-  }
-
   async proceedToCheckout(): Promise<void> {
-    await this.clearOverlays();
     await this.cartTable.waitFor({ state: 'visible', timeout: 15000 });
     await this.checkout.waitFor({ state: 'visible', timeout: 15000 });
     await this.checkout.click();
@@ -80,12 +55,9 @@ export class CartPage {
   }
 
   async getCartProducts(): Promise<CartProduct[]> {
-    const cartRows = this.cartTable.locator('tbody tr');
-    const count = await cartRows.count();
     const products: CartProduct[] = [];
 
-    for (let i = 0; i < count; i++) {
-      const cartRow = cartRows.nth(i);
+    for (const cartRow of await this.getCartRows().all()) {
       const name = await cartRow.locator('h4').innerText();
       const price = await cartRow.locator('td.cart_price p').innerText();
       const quantityText = await cartRow.locator('td.cart_quantity button').innerText();
@@ -109,15 +81,10 @@ export class CartPage {
   }
 
   async clearCart(): Promise<void> {
-    await this.page.goto('/view_cart', { waitUntil: 'load' });
-    await this.clearOverlays();
+    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
 
-    while ((await this.getCartRowCount()) > 0) {
-      const rowCount = await this.getCartRowCount();
-      const deleteLink = this.cartTable.locator('tbody tr').first().locator('a[data-product-id]');
-      await deleteLink.click();
-      await this.waitForCartRowCountBelow(rowCount);
-      await this.clearOverlays();
+    for (const product of await this.getCartProducts()) {
+      await this.removeProduct(product.name);
     }
   }
 

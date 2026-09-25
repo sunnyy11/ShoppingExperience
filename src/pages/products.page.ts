@@ -20,6 +20,7 @@ export class ProductsPage {
     this.page = page;
     this.productsHeading = page.getByRole('heading', { name: 'All Products' });
     this.searchInput = page.getByRole('textbox', { name: 'Search Product' });
+    // The search input has no associated <label>, so its stable id is the only handle.
     this.searchButton = page.locator('#submit_search');
     this.searchedProductsHeading = page.getByRole('heading', { name: 'Searched Products' });
     this.productCards = page.locator('.features_items .col-sm-4');
@@ -29,7 +30,7 @@ export class ProductsPage {
   }
 
   async goto(): Promise<void> {
-    await this.page.goto('/products', { waitUntil: 'load' });
+    await this.page.goto('/products', { waitUntil: 'domcontentloaded' });
     await this.expectLoaded();
   }
 
@@ -38,7 +39,6 @@ export class ProductsPage {
   }
 
   async search(productName: string): Promise<void> {
-    await this.clearOverlays();
     await this.searchInput.waitFor({ state: 'visible', timeout: 15000 });
     await this.searchInput.fill(productName);
     await this.searchButton.waitFor({ state: 'visible', timeout: 15000 });
@@ -50,89 +50,79 @@ export class ProductsPage {
     return await this.productCards.count();
   }
 
-  async getFirstSearchedProductName(): Promise<string> {
-    return await this.productCards.first().locator('p').first().innerText();
+  getProductCard(productName: string): Locator {
+    return this.productCards.filter({
+      has: this.page.getByText(productName, { exact: true }),
+    });
   }
 
-  async addProductToCart(index: number): Promise<ProductInfo> {
-    const productCard = this.productCards.nth(index);
-    const name = await productCard.locator('p').first().innerText();
-    const price = await productCard.locator('h2').first().innerText();
+  getProductNameElement(productName: string): Locator {
+    // Each card renders the name twice (visible block plus hover overlay), so scope
+    // to the non-interactive copy to keep the locator unique.
+    return this.getProductCard(productName).locator('.productinfo p');
+  }
 
-    await this.clearOverlays();
-    await productCard.hover();
+  getProductPriceElement(productName: string): Locator {
+    return this.getProductCard(productName).locator('.productinfo h2');
+  }
 
-    const addToCartLink = productCard.locator('.overlay-content a.add-to-cart').first();
-    await addToCartLink.waitFor({ state: 'visible', timeout: 10000 });
+  async getProductId(productName: string): Promise<string> {
+    const href = await this.getProductCard(productName)
+      .getByRole('link', { name: 'View Product' })
+      .getAttribute('href');
 
-    // Increase timeout for flaky add_to_cart network response
-    const responsePromise = this.page.waitForResponse(
-      (response) =>
-        response.request().method() === 'GET' && /\/add_to_cart\/\d+$/.test(response.url()),
-      { timeout: 30000 },
-    );
-    await addToCartLink.click();
-    const response = await responsePromise;
+    return href?.split('/').pop() ?? '';
+  }
 
-    if (!response.ok()) {
-      throw new Error(`Failed to add product ${name} to the cart: HTTP ${response.status()}`);
+  async gotoProductDetail(productName: string): Promise<void> {
+    const productId = await this.getProductId(productName);
+
+    if (!productId) {
+      throw new Error(`No product detail link found for "${productName}"`);
     }
 
+    await this.page.goto(`/product_details/${productId}`);
+  }
+
+  async addProductToCart(productName: string): Promise<ProductInfo> {
+    const listUrl = this.page.url();
+    const price = (await this.getProductPriceElement(productName).innerText()).trim();
+
+    await this.gotoProductDetail(productName);
+    await expect(this.page.getByRole('heading', { name: productName })).toBeVisible({
+      timeout: 15000,
+    });
+
+    await this.page.getByRole('button', { name: 'Add to cart' }).click();
     await this.page
       .getByRole('heading', { name: 'Added!' })
-      .waitFor({ state: 'visible', timeout: 5000 })
-      .catch(() => undefined);
-    await this.page
-      .getByRole('button', { name: 'Continue Shopping' })
-      .click({ timeout: 5000 })
-      .catch(() => undefined);
+      .waitFor({ state: 'visible', timeout: 10000 });
+    await this.page.getByRole('button', { name: 'Continue Shopping' }).click();
+    await this.page.goto(listUrl, { waitUntil: 'domcontentloaded' });
 
-    return { name, price };
+    return { name: productName, price };
   }
 
   async addAllSearchedProductsToCart(): Promise<ProductInfo[]> {
-    const count = await this.getSearchedProductsCount();
     const products: ProductInfo[] = [];
 
-    for (let i = 0; i < count; i++) {
-      const product = await this.addProductToCart(i);
-      products.push(product);
+    for (const card of await this.productCards.all()) {
+      const name = (await card.locator('.productinfo p').innerText()).trim();
+      products.push(await this.addProductToCart(name));
     }
 
     return products;
   }
 
-  async clearOverlays(): Promise<void> {
-    await this.page.evaluate(() => {
-      const adSelectors = [
-        '.google-auto-placed',
-        'ins.adsbygoogle',
-        'iframe[id^="aswift"]',
-        '.modal-backdrop',
-        '#cartModal',
-        '.modal-open',
-        '.ad-slot',
-        'div[id*="google_ads"]',
-        'div[class*="ad-container"]',
-      ];
-      adSelectors.forEach((selector) => {
-        document.querySelectorAll(selector).forEach((el) => el.remove());
-      });
-      document.querySelector('body')?.classList.remove('modal-open');
-    });
-  }
-
   async openCart(): Promise<void> {
-    await this.page.goto('/view_cart', { waitUntil: 'load' });
+    await this.page.goto('/view_cart', { waitUntil: 'domcontentloaded' });
   }
 
   async openCartFromHeader(): Promise<void> {
-    await this.clearOverlays();
     await this.cartLink.click();
   }
 
   async openSignupLogin(): Promise<void> {
-    await this.clearOverlays();
     await this.page.waitForLoadState('domcontentloaded');
     await this.signupLoginLink.waitFor({ state: 'visible', timeout: 15000 });
     await this.signupLoginLink.click();

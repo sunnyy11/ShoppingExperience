@@ -8,6 +8,7 @@ export class LoginPage {
 
   constructor(page: Page) {
     this.page = page;
+    // Use data-qa attribute as it's unique and stable
     this.email = page.locator('[data-qa="login-email"]');
     this.password = page.locator('[data-qa="login-password"]');
     this.submit = page.getByRole('button', { name: 'Login' });

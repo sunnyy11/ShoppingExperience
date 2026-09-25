@@ -1,7 +1,5 @@
-import { expect, test } from '@fixtures/pom-fixtures';
-import { buildTestUser, buildRegistrationDetails } from '@data/test-user';
-
-test.setTimeout(120_000);
+import { expect, test } from '@fixtures';
+import { buildTestUser, buildRegistrationDetails } from '@data/test-user.factory';
 
 test.describe('Automation Exercise registration', () => {
   test('registers a new user', { tag: '@smoke' }, async ({ page, registerPage }) => {

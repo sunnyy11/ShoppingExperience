@@ -1,13 +1,7 @@
 #!/bin/sh
-# Pre-commit hook: auto-format code with Prettier before committing
+# Pre-commit hook: run ESLint and Prettier on staged files via lint-staged
 
-echo "Running Prettier to format code..."
-npx prettier --write .
-
-# Check if there are changes after formatting
-if ! git diff --quiet; then
-  echo "Prettier made changes. Staging formatted files..."
-  git add .
-fi
+echo "Running lint-staged..."
+npx lint-staged
 
 echo "Pre-commit checks passed."

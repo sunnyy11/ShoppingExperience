@@ -1,10 +1,10 @@
 import { type Locator, type Page } from '@playwright/test';
-import { type RegistrationDetails, type TestUser } from '@data/test-user';
+import { type RegistrationDetails, type TestUser } from '@data/test-user.factory';
 
 export class RegisterPage {
   readonly page: Page;
 
-  // Quick Signup
+  // Quick Signup - use data-qa attributes
   readonly signupName: Locator;
   readonly signupEmail: Locator;
   readonly signupButton: Locator;

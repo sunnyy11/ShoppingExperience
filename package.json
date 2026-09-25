@@ -1,7 +1,7 @@
 {
-  "name": "saucedemo",
+  "name": "shopping-ecommerce",
   "version": "1.0.0",
-  "description": "",
+  "description": "Playwright E2E tests for shopping e-commerce site",
   "main": "index.js",
   "scripts": {
     "test": "playwright test",
@@ -12,26 +12,38 @@
     "report": "playwright show-report",
     "lint": "eslint .",
     "format": "prettier --write .",
-    "typecheck": "tsc --noEmit"
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "prepare": "husky install"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "type": "commonjs",
   "engines": {
-    "node": ">=20"
+    "node": "22"
   },
   "devDependencies": {
-    "@faker-js/faker": "^10.6.0",
-    "@playwright/test": "^1.63.0",
-    "@types/node": "^26.6.1",
-    "@typescript-eslint/eslint-plugin": "^8.70.0",
-    "@typescript-eslint/parser": "^8.70.0",
-    "eslint": "^10.10.0",
-    "eslint-plugin-playwright": "^2.12.0",
-    "prettier": "^3.9.8"
+    "@faker-js/faker": "10.6.0",
+    "@playwright/test": "1.63.0",
+    "@types/node": "26.6.1",
+    "@typescript-eslint/eslint-plugin": "8.70.0",
+    "@typescript-eslint/parser": "8.70.0",
+    "eslint": "10.10.0",
+    "eslint-plugin-playwright": "2.12.0",
+    "husky": "9.1.7",
+    "jiti": "2.7.0",
+    "lint-staged": "15.2.10",
+    "prettier": "3.9.8",
+    "tsconfig-paths": "^4.2.0"
   },
   "dependencies": {
-    "mailosaur": "^11.1.1"
+    "mailosaur": "11.1.1"
+  },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,md,css,html}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
   }
 }

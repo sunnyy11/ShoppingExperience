@@ -1,12 +1,8 @@
-import { test, expect } from '@playwright/test';
-import { OtpLoginPage } from '@pages/OtpLoginPage';
-import { generateEmailAddress, waitForEmail } from '@support/mailosaur';
-
-test.setTimeout(120_000);
+import { test, expect } from '@fixtures';
+import { generateEmailAddress, waitForEmail } from '@utils/mailosaur';
 
 test.describe('OTP login with Mailosaur email verification', () => {
-  test('receives OTP via email and logs in successfully', async ({ page }) => {
-    const otpLoginPage = new OtpLoginPage(page);
+  test('receives OTP via email and logs in successfully', async ({ otpLoginPage }) => {
     const emailAddress = generateEmailAddress();
 
     await test.step('navigate to OTP login page', async () => {

@@ -1,12 +1,10 @@
-import { expect, test } from '@fixtures/auth.fixture';
-
-test.setTimeout(120_000);
+import { expect, test } from '@fixtures';
 
 test.describe('Automation Exercise products', () => {
   const PRODUCT_NAME = 'Blue Top';
-  const QUANTITY = '4';
   const PRODUCT_1_NAME = 'Sleeves Printed Top - White';
   const PRODUCT_2_NAME = 'Pure Cotton Neon Green Tshirt';
+  const TWO_PRODUCTS = ['Blue Top', 'Men Tshirt'] as const;
 
   test('searches for a product', async ({ page, productsPage }) => {
     await test.step('open the home page and navigate to products', async () => {
@@ -22,9 +20,9 @@ test.describe('Automation Exercise products', () => {
 
     await test.step('verify the matching products are visible', async () => {
       const count = await productsPage.getSearchedProductsCount();
-      expect(count).toBe(1);
-      const firstProductName = await productsPage.getFirstSearchedProductName();
-      expect(firstProductName).toContain(PRODUCT_NAME);
+      expect(count).toBeGreaterThanOrEqual(1);
+      await expect(productsPage.getProductCard(PRODUCT_NAME)).toHaveCount(1);
+      await expect(productsPage.getProductNameElement(PRODUCT_NAME)).toHaveText(PRODUCT_NAME);
     });
   });
 
@@ -36,12 +34,14 @@ test.describe('Automation Exercise products', () => {
       await productsPage.goto();
     });
 
+    const [firstProductName, secondProductName] = TWO_PRODUCTS;
+
     const firstProduct = await test.step('add the first product to the cart', async () => {
-      return await productsPage.addProductToCart(0);
+      return await productsPage.addProductToCart(firstProductName);
     });
 
     const secondProduct = await test.step('add the second product to the cart', async () => {
-      return await productsPage.addProductToCart(1);
+      return await productsPage.addProductToCart(secondProductName);
     });
 
     const products = [firstProduct, secondProduct];
@@ -49,7 +49,6 @@ test.describe('Automation Exercise products', () => {
     await test.step('verify both products and their cart totals', async () => {
       await productsPage.openCart();
       await cartPage.expectLoaded();
-      await cartPage.clearOverlays();
       for (const product of products) {
         const row = cartPage.getProductRow(product.name);
         await expect(row).toHaveCount(1);
@@ -67,23 +66,21 @@ test.describe('Automation Exercise products', () => {
       await productsPage.goto();
     });
 
+    const [firstProductName, secondProductName] = TWO_PRODUCTS;
+
     const firstProduct = await test.step('add the first product to the cart', async () => {
-      return await productsPage.addProductToCart(0);
+      return await productsPage.addProductToCart(firstProductName);
     });
 
     const secondProduct = await test.step('add the second product to the cart', async () => {
-      return await productsPage.addProductToCart(1);
+      return await productsPage.addProductToCart(secondProductName);
     });
-
-    console.log('First product:', firstProduct);
-    console.log('Second product:', secondProduct);
 
     const products = [firstProduct, secondProduct];
 
     await test.step('click Cart button and verify cart page is displayed', async () => {
       await productsPage.openCart();
       await cartPage.expectLoaded();
-      await cartPage.clearOverlays();
       for (const product of products) {
         const row = cartPage.getProductRow(product.name);
         await expect(row).toHaveCount(1);
@@ -119,85 +116,106 @@ test.describe('Automation Exercise products', () => {
     });
   });
 
-  test('User adds two products Sleeves Printed Top - White and Pure Cotton Neon Green Tshirt with 2 quantity verifies price in cart page', async ({
+  test('adds a product with quantity 2 from product detail page', async ({
     page,
     productsPage,
     cartPage,
   }) => {
-    await test.step('add two products with quantity 2 to the cart', async () => {
-      // Product 1: Sleeves Printed Top - White
+    await test.step('search for product and open detail page', async () => {
       await page.goto('/');
       await page.getByRole('link', { name: 'Products' }).click();
       await productsPage.goto();
 
       await productsPage.search(PRODUCT_1_NAME);
-      const productCard1 = productsPage.productCards.first();
-      const name1 = PRODUCT_1_NAME;
-      const productId1 =
-        (await productCard1
-          .locator('a[data-product-id]')
-          .first()
-          .getAttribute('data-product-id')) ?? '';
-      expect(productId1).toBeTruthy();
+      await expect(productsPage.getProductCard(PRODUCT_1_NAME)).toHaveCount(1);
 
-      await page.goto(`/product_details/${productId1}`);
-      await expect(page.locator('h2').filter({ hasText: name1 }).first()).toBeVisible();
-      await page.locator('#quantity').fill('2');
-      await page.getByRole('button', { name: 'Add to cart' }).click();
-      await expect(page.getByRole('heading', { name: 'Added!' })).toBeVisible();
-      await page.getByRole('button', { name: 'Continue Shopping' }).click();
+      await productsPage.gotoProductDetail(PRODUCT_1_NAME);
+      await expect(page.getByRole('heading', { name: PRODUCT_1_NAME })).toBeVisible();
+    });
 
-      // Product 2: Pure Cotton Neon Green Tshirt
-      await page.goto('/');
-      await page.getByRole('link', { name: 'Products' }).click();
-      await productsPage.goto();
-
-      await productsPage.search(PRODUCT_2_NAME);
-      const productCard2 = productsPage.productCards.first();
-      const name2 = PRODUCT_2_NAME;
-      const productId2 =
-        (await productCard2
-          .locator('a[data-product-id]')
-          .first()
-          .getAttribute('data-product-id')) ?? '';
-      expect(productId2).toBeTruthy();
-
-      await page.goto(`/product_details/${productId2}`);
-      await expect(page.locator('h2').filter({ hasText: name2 }).first()).toBeVisible();
+    await test.step('add product with quantity 2 to cart', async () => {
       await page.locator('#quantity').fill('2');
       await page.getByRole('button', { name: 'Add to cart' }).click();
       await expect(page.getByRole('heading', { name: 'Added!' })).toBeVisible();
       await page.getByRole('button', { name: 'Continue Shopping' }).click();
     });
 
-    await test.step('verify price * quantity equals total for each product in cart (qty=2)', async () => {
+    await test.step('verify product in cart with correct quantity and total', async () => {
       await productsPage.openCart();
       await cartPage.expectLoaded();
 
-      const cartRows = cartPage.cartTable.locator('tbody tr');
-      await expect(cartRows).toHaveCount(2);
-      const count = await cartRows.count();
+      const row = cartPage.getProductRow(PRODUCT_1_NAME);
+      await expect(row).toHaveCount(1);
 
-      for (let i = 0; i < count; i++) {
-        const cartRow = cartRows.nth(i);
-        const cartProductName = await cartRow.locator('h4').innerText();
+      const priceText = await row.locator('td.cart_price p').innerText();
+      const price = parseFloat(priceText.replace(/[^\d]/g, ''));
 
-        const priceText = await cartRow.locator('td').nth(2).locator('p').innerText();
-        console.log(`Raw price text: "${priceText}"`);
+      const quantityText = await row.locator('td.cart_quantity button').innerText();
+      const quantity = parseInt(quantityText, 10);
+
+      const totalText = await row.locator('td.cart_total p').innerText();
+      const total = parseFloat(totalText.replace(/[^\d]/g, ''));
+
+      expect(quantity).toBe(2);
+      expect(total).toBe(price * 2);
+    });
+  });
+
+  test('adds two products with quantity 2 and verifies cart totals', async ({
+    page,
+    productsPage,
+    cartPage,
+  }) => {
+    await test.step('add first product with quantity 2', async () => {
+      await page.goto('/');
+      await page.getByRole('link', { name: 'Products' }).click();
+      await productsPage.goto();
+
+      await productsPage.search(PRODUCT_1_NAME);
+      await expect(productsPage.getProductCard(PRODUCT_1_NAME)).toHaveCount(1);
+
+      await productsPage.gotoProductDetail(PRODUCT_1_NAME);
+      await expect(page.getByRole('heading', { name: PRODUCT_1_NAME })).toBeVisible();
+      await page.locator('#quantity').fill('2');
+      await page.getByRole('button', { name: 'Add to cart' }).click();
+      await expect(page.getByRole('heading', { name: 'Added!' })).toBeVisible();
+      await page.getByRole('button', { name: 'Continue Shopping' }).click();
+    });
+
+    await test.step('add second product with quantity 2', async () => {
+      // Navigate back to products page from current state
+      await productsPage.goto();
+
+      await productsPage.search(PRODUCT_2_NAME);
+      await expect(productsPage.getProductCard(PRODUCT_2_NAME)).toHaveCount(1);
+
+      await productsPage.gotoProductDetail(PRODUCT_2_NAME);
+      await expect(page.getByRole('heading', { name: PRODUCT_2_NAME })).toBeVisible();
+      await page.locator('#quantity').fill('2');
+      await page.getByRole('button', { name: 'Add to cart' }).click();
+      await expect(page.getByRole('heading', { name: 'Added!' })).toBeVisible();
+      await page.getByRole('button', { name: 'Continue Shopping' }).click();
+    });
+
+    await test.step('verify price * quantity equals total for each product in cart', async () => {
+      await productsPage.openCart();
+      await cartPage.expectLoaded();
+      await expect(cartPage.getCartRows()).toHaveCount(2);
+
+      for (const productName of [PRODUCT_1_NAME, PRODUCT_2_NAME]) {
+        const cartRow = cartPage.getProductRow(productName);
+        await expect(cartRow).toHaveCount(1);
+
+        const priceText = await cartRow.locator('td.cart_price p').innerText();
         const price = parseFloat(priceText.replace(/[^\d]/g, ''));
 
-        const quantityText = await cartRow.locator('td').nth(3).locator('button').innerText();
+        const quantityText = await cartRow.locator('td.cart_quantity button').innerText();
         const quantity = parseInt(quantityText, 10);
 
-        const totalText = await cartRow.locator('td').nth(4).locator('p').innerText();
+        const totalText = await cartRow.locator('td.cart_total p').innerText();
         const total = parseFloat(totalText.replace(/[^\d]/g, ''));
 
         const expectedTotal = price * quantity;
-        console.log(`Product: ${cartProductName}`);
-        console.log(`  Price: ${price}`);
-        console.log(`  Quantity: ${quantity}`);
-        console.log(`  Total: ${total}`);
-        console.log(`  Expected Total (price * quantity): ${expectedTotal}`);
         expect(total).toBe(expectedTotal);
         expect(quantity).toBe(2);
       }

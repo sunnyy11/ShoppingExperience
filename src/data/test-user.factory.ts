@@ -1,5 +1,5 @@
 import { faker } from '@faker-js/faker';
-import { type ShippingDetails } from '../pages/CheckoutPage';
+import { type ShippingDetails } from '@pages/checkout.page';
 
 export interface TestUser {
   email: string;
@@ -101,6 +101,65 @@ export function buildPaymentDetails(user: TestUser): PaymentDetails {
 function readUserPool(): TestUser[] {
   const pool: TestUser[] = [];
 
+  // Use the provided test credentials
+  pool.push({
+    email: 'test_two@gmail.com',
+    password: 'Test@123',
+    firstName: 'Test',
+    lastName: 'User',
+  });
+
+  // Additional test users
+  pool.push({
+    email: 'antoinette_cremin-thompson70@hotmail.com',
+    password: 'Pw!co0Q2gSU7KpzzM',
+    firstName: 'Antoinette',
+    lastName: 'Cremin-Thompson',
+  });
+
+  pool.push({
+    email: 'feyih44519@meonvr.com',
+    password: 'Test@123',
+    firstName: 'Feyih',
+    lastName: 'Test',
+  });
+
+  pool.push({
+    email: 'norman.hoeger15@hotmail.com',
+    password: 'Pw!Ll3Y7HI1FWPHTk',
+    firstName: 'Norman',
+    lastName: 'Hoeger',
+  });
+
+  pool.push({
+    email: 'worker1@test.com',
+    password: 'Worker@123',
+    firstName: 'Worker',
+    lastName: 'One',
+  });
+
+  pool.push({
+    email: 'worker2@test.com',
+    password: 'Worker@123',
+    firstName: 'Worker',
+    lastName: 'Two',
+  });
+
+  pool.push({
+    email: 'worker3@test.com',
+    password: 'Worker@123',
+    firstName: 'Worker',
+    lastName: 'Three',
+  });
+
+  pool.push({
+    email: 'worker4@test.com',
+    password: 'Worker@123',
+    firstName: 'Worker',
+    lastName: 'Four',
+  });
+
+  // Add additional workers if env vars are set
   for (let index = 1; ; index += 1) {
     const emailVariable = `AUTOMATION_EXERCISE_TEST_EMAIL_${index}`;
     const passwordVariable = `AUTOMATION_EXERCISE_TEST_PASSWORD_${index}`;

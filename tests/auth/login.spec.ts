@@ -1,7 +1,5 @@
-import { test, expect } from '@fixtures/pom-fixtures';
-import { getConfiguredUser } from '@data/test-user';
-
-test.setTimeout(120_000);
+import { test, expect } from '@fixtures';
+import { getConfiguredUser } from '@data/test-user.factory';
 
 test.describe('Automation Exercise login', () => {
   test('logs in with the registered user and verifies Delete Account is available', async ({

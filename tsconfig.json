@@ -13,9 +13,12 @@
     "baseUrl": ".",
     "paths": {
       "@pages/*": ["src/pages/*"],
+      "@fixtures": ["src/fixtures/index.ts"],
       "@fixtures/*": ["src/fixtures/*"],
       "@data/*": ["src/data/*"],
-      "@support/*": ["src/support/*"]
+      "@utils/*": ["src/utils/*"],
+      "@api/*": ["src/api/*"],
+      "@config/*": ["src/config/*"]
     }
   },
   "include": ["playwright.config.ts", "src/**/*.ts", "tests/**/*.ts"]
