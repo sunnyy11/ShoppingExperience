@@ -140,12 +140,11 @@ test.describe('Mailosaur Email Testing', () => {
       const message = await waitForEmail(emailAddress);
 
       const allLinks = [...(message.html?.links ?? []), ...(message.text?.links ?? [])];
-      expect(allLinks.length).toBeGreaterThanOrEqual(0);
-      for (const link of allLinks) {
-        if (link.href) {
-          const status = await emailTestingPage.clickLinkAndVerify(link.href);
-          expect([200, 301, 302, 404]).toContain(status);
-        }
+      const linksWithHref = allLinks.filter((link) => link.href);
+      expect(linksWithHref.length).toBeGreaterThanOrEqual(0);
+      for (const link of linksWithHref) {
+        const status = await emailTestingPage.clickLinkAndVerify(link.href!);
+        expect([200, 301, 302, 404]).toContain(status);
       }
     });
   });

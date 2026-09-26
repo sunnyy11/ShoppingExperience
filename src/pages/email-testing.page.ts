@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import MailosaurClient from 'mailosaur';
-import type { Message, SearchCriteria, MessageSummary, Attachment } from 'mailosaur';
+import type { Message, SearchCriteria, Attachment } from 'mailosaur';
 
 export interface EmailTestData {
   emailAddress: string;
@@ -350,7 +350,12 @@ export class EmailTestingPage {
     timeout = 30_000,
     pollInterval = 2_000,
   ): Promise<Message> {
-    return this.waitForEmail(sentTo, { receivedAfter: receivedAfter.toISOString() } as Partial<SearchCriteria>, timeout, pollInterval);
+    return this.waitForEmail(
+      sentTo,
+      { receivedAfter: receivedAfter.toISOString() } as Partial<SearchCriteria>,
+      timeout,
+      pollInterval,
+    );
   }
 
   async searchMultipleEmails(sentTo: string, maxResults = 10): Promise<Message[]> {
