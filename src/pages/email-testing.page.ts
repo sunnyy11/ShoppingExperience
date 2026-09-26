@@ -1,6 +1,6 @@
 import { type Page, expect } from '@playwright/test';
 import MailosaurClient from 'mailosaur';
-import type { Message, SearchCriteria } from 'mailosaur';
+import type { Message, SearchCriteria, MessageSummary, Attachment } from 'mailosaur';
 
 export interface EmailTestData {
   emailAddress: string;
@@ -121,14 +121,14 @@ export class EmailTestingPage {
     const client = this.getClient();
     const serverId = this.getServerId();
     const result = await client.messages.list(serverId);
-    return result.items;
+    return (result.items ?? []) as unknown as Message[];
   }
 
   async searchEmails(criteria: SearchCriteria, page = 0, itemsPerPage = 10): Promise<Message[]> {
     const client = this.getClient();
     const serverId = this.getServerId();
     const result = await client.messages.search(serverId, criteria, { page, itemsPerPage });
-    return result.items;
+    return (result.items ?? []) as unknown as Message[];
   }
 
   async sendEmail(options: SendEmailOptions): Promise<Message> {
@@ -144,7 +144,7 @@ export class EmailTestingPage {
         fileName: a.fileName,
         contentType: a.contentType,
         content: a.content,
-      })),
+      })) as Attachment[],
     });
   }
 
@@ -153,12 +153,6 @@ export class EmailTestingPage {
     await client.messages.reply(messageId, {
       text: options.text,
       html: options.html,
-      subject: options.subject,
-      attachments: options.attachments?.map((a) => ({
-        fileName: a.fileName,
-        contentType: a.contentType,
-        content: a.content,
-      })),
     });
   }
 
@@ -168,7 +162,6 @@ export class EmailTestingPage {
       to: options.to,
       text: options.text,
       html: options.html,
-      subject: options.subject,
     });
   }
 
@@ -279,7 +272,7 @@ export class EmailTestingPage {
   async verifyCodes(message: Message, expectedCode?: string | RegExp): Promise<string[]> {
     const htmlCodes = message.html?.codes ?? [];
     const textCodes = message.text?.codes ?? [];
-    const allCodes = [...htmlCodes, ...textCodes].map((c) => c.value);
+    const allCodes = [...htmlCodes, ...textCodes].map((c) => c.value ?? '').filter(Boolean);
 
     if (expectedCode) {
       if (typeof expectedCode === 'string') {
@@ -301,10 +294,11 @@ export class EmailTestingPage {
       minLength?: number;
     }>,
   ): Promise<void> {
-    expect(message.attachments.length).toBeGreaterThanOrEqual(expectedAttachments.length);
+    const attachments = message.attachments ?? [];
+    expect(attachments.length).toBeGreaterThanOrEqual(expectedAttachments.length);
 
     for (const expected of expectedAttachments) {
-      const attachment = message.attachments.find(
+      const attachment = attachments.find(
         (a) =>
           (!expected.fileName || a.fileName === expected.fileName) &&
           (!expected.contentType || a.contentType === expected.contentType),
@@ -356,7 +350,7 @@ export class EmailTestingPage {
     timeout = 30_000,
     pollInterval = 2_000,
   ): Promise<Message> {
-    return this.waitForEmail(sentTo, { receivedAfter }, timeout, pollInterval);
+    return this.waitForEmail(sentTo, { receivedAfter: receivedAfter.toISOString() } as Partial<SearchCriteria>, timeout, pollInterval);
   }
 
   async searchMultipleEmails(sentTo: string, maxResults = 10): Promise<Message[]> {

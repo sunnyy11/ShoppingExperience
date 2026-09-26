@@ -97,8 +97,8 @@ test.describe('Mailosaur Email Testing', () => {
 
       expect(message.html?.body).toBeDefined();
       expect(message.text?.body).toBeDefined();
-      expect(message.html?.body.length).toBeGreaterThan(0);
-      expect(message.text?.body.length).toBeGreaterThan(0);
+      expect(message.html?.body?.length).toBeGreaterThan(0);
+      expect(message.text?.body?.length).toBeGreaterThan(0);
       void emailTestingPage;
     });
   });
@@ -142,8 +142,10 @@ test.describe('Mailosaur Email Testing', () => {
       const allLinks = [...(message.html?.links ?? []), ...(message.text?.links ?? [])];
       expect(allLinks.length).toBeGreaterThanOrEqual(0);
       for (const link of allLinks) {
-        const status = await emailTestingPage.clickLinkAndVerify(link.href);
-        expect([200, 301, 302, 404]).toContain(status);
+        if (link.href) {
+          const status = await emailTestingPage.clickLinkAndVerify(link.href);
+          expect([200, 301, 302, 404]).toContain(status);
+        }
       }
     });
   });
@@ -291,7 +293,7 @@ test.describe('Mailosaur Email Testing', () => {
 
         const message = await waitForEmail(emailAddress);
 
-        await emailTestingPage.forwardEmail(message.id, {
+        await emailTestingPage.forwardEmail(message.id!, {
           to: verifiedEmail,
           text: 'FYI - forwarding this message',
         });
@@ -308,7 +310,7 @@ test.describe('Mailosaur Email Testing', () => {
 
         const message = await waitForEmail(emailAddress);
 
-        await emailTestingPage.forwardEmail(message.id, {
+        await emailTestingPage.forwardEmail(message.id!, {
           to: verifiedEmail,
           subject: 'Forwarded: Custom Subject',
           text: 'Forwarded with custom subject',
@@ -329,7 +331,7 @@ test.describe('Mailosaur Email Testing', () => {
 
       const message = await waitForEmail(emailAddress);
 
-      await emailTestingPage.deleteEmail(message.id);
+      await emailTestingPage.deleteEmail(message.id!);
 
       const messages = await emailTestingPage.listEmails();
       const deleted = messages.find((m) => m.id === message.id);
@@ -414,7 +416,7 @@ test.describe('Mailosaur Email Testing', () => {
 
       const message = await waitForEmail(emailAddress);
 
-      const fullMessage = await emailTestingPage.getEmailById(message.id);
+      const fullMessage = await emailTestingPage.getEmailById(message.id!);
 
       expect(fullMessage.html?.body).toBeDefined();
       expect(fullMessage.text?.body).toBeDefined();
@@ -467,7 +469,7 @@ test.describe('Mailosaur Email Testing', () => {
       await emailTestingPage.verifyHtmlContent(receivedMessage, 'OTP');
       await emailTestingPage.verifyTextContent(receivedMessage, 'OTP');
 
-      await emailTestingPage.deleteEmail(receivedMessage.id);
+      await emailTestingPage.deleteEmail(receivedMessage.id!);
 
       const remainingMessages = await emailTestingPage.listEmails();
       const deleted = remainingMessages.find((m) => m.id === receivedMessage.id);
