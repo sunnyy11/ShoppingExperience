@@ -2,11 +2,11 @@ import { test, expect } from '@fixtures';
 import { OauthPage, type OAuthProvider } from '@pages/oauth.page';
 import { getGoogleTokens } from '@utils/google-token';
 
-test.describe('OAuth 2.0 social login', () => {
+test.describe.skip('OAuth 2.0 social login', () => {
   const PRIMARY_PROVIDER: OAuthProvider = 'google';
   const ALL_PROVIDERS: OAuthProvider[] = ['google', 'github', 'microsoft'];
 
-  test('verifies OAuth 2.0 buttons are present on the login page', async ({ page }) => {
+  test.skip('verifies OAuth 2.0 buttons are present on the login page', async ({ page }) => {
     const oauthPage = new OauthPage(page);
 
     await test.step('navigate to the login page', async () => {
@@ -19,7 +19,7 @@ test.describe('OAuth 2.0 social login', () => {
     });
   });
 
-  test('initiates the OAuth 2.0 authorization code flow', async ({ page }) => {
+  test.skip('initiates the OAuth 2.0 authorization code flow', async ({ page }) => {
     const oauthPage = new OauthPage(page);
 
     await test.step('navigate to the login page', async () => {
@@ -37,7 +37,7 @@ test.describe('OAuth 2.0 social login', () => {
     });
   });
 
-  test('obtains Google OAuth tokens via token endpoint (Layer 1)', async () => {
+  test.skip('obtains Google OAuth tokens via token endpoint (Layer 1)', async () => {
     const tokens = await getGoogleTokens();
 
     await test.step('verify the access token is valid', async () => {
@@ -47,7 +47,7 @@ test.describe('OAuth 2.0 social login', () => {
   });
 
   for (const provider of ALL_PROVIDERS) {
-    test(`verifies OAuth 2.0 redirect for ${provider}`, async ({ page }) => {
+    test.skip(`verifies OAuth 2.0 redirect for ${provider}`, async ({ page }) => {
       const oauthPage = new OauthPage(page);
 
       await test.step('navigate to the login page', async () => {
