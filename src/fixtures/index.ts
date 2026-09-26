@@ -1,6 +1,7 @@
 import { test as base, expect } from '@playwright/test';
 import { CartPage } from '@pages/cart.page';
 import { CheckoutPage } from '@pages/checkout.page';
+import { EmailTestingPage } from '@pages/email-testing.page';
 import { LoginPage } from '@pages/login.page';
 import { OtpLoginPage } from '@pages/otp-login.page';
 import { ProductsPage } from '@pages/products.page';
@@ -13,6 +14,7 @@ import * as path from 'node:path';
 type Pages = {
   cartPage: CartPage;
   checkoutPage: CheckoutPage;
+  emailTestingPage: EmailTestingPage;
   loginPage: LoginPage;
   otpLoginPage: OtpLoginPage;
   productsPage: ProductsPage;
@@ -125,6 +127,7 @@ const extendedTest = base.extend<Pages, WorkerFixtures>({
 
   cartPage: async ({ page }, use) => use(new CartPage(page)),
   checkoutPage: async ({ page }, use) => use(new CheckoutPage(page)),
+  emailTestingPage: async ({ page }, use) => use(new EmailTestingPage(page)),
   loginPage: async ({ page }, use) => use(new LoginPage(page)),
   otpLoginPage: async ({ page }, use) => use(new OtpLoginPage(page)),
   productsPage: async ({ page }, use) => use(new ProductsPage(page)),
