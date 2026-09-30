@@ -114,21 +114,25 @@ This repository is a complete, production-grade E2E framework: a page-object mod
 ```
 repo-root/
 ├─ tests/                              # Specs only (*.spec.ts)
-│  ├─ auth/
-│  │  ├─ login.spec.ts                 # Login + Delete Account visibility
-│  │  ├─ google-oauth.smoke.spec.ts    # Layer 2: real Google UI OAuth smoke
-│  │  └─ oauth.spec.ts.skip            # Disabled Layer 1/Layer 2 OAuth suite
-│  ├─ checkout/
-│  │  └─ place-order.spec.ts           # Order placement, invoice, addresses
-│  ├─ email/
-│  │  ├─ email-testing.spec.ts         # Mailosaur email assertion suite
-│  │  ├─ email-testing.plan.md         # Coverage plan for email testing
-│  │  └─ otp-mailosaur.spec.ts         # OTP login with real email
-│  ├─ products/
-│  │  ├─ products-search-add.spec.ts   # Search, add, remove, quantities
-│  │  └─ search-verify-cart-after-login.spec.ts
-│  └─ register/
-│     └─ register.spec.ts              # New account registration
+│  ├─ ui-tests/                        # Browser-driven specs
+│  │  ├─ auth/
+│  │  │  ├─ login.spec.ts                 # Login + Delete Account visibility
+│  │  │  ├─ google-oauth.smoke.spec.ts    # Layer 2: real Google UI OAuth smoke
+│  │  │  └─ oauth.spec.ts.skip            # Disabled Layer 1/Layer 2 OAuth suite
+│  │  ├─ checkout/
+│  │  │  └─ place-order.spec.ts           # Order placement, invoice, addresses
+│  │  ├─ products/
+│  │  │  ├─ products-search-add.spec.ts   # Search, add, remove, quantities
+│  │  │  └─ search-verify-cart-after-login.spec.ts
+│  │  └─ register/
+│  │     └─ register.spec.ts              # New account registration
+│  └─ api-tests/                       # REST specs, no browser
+│     ├─ accounts/
+│     │  └─ user-account.spec.ts        # API 11 create, API 12 delete, API 14 user detail
+│     └─ email/
+│        ├─ email-testing.spec.ts       # Mailosaur email assertion suite
+│        ├─ email-testing.plan.md       # Coverage plan for email testing
+│        └─ otp-mailosaur.spec.ts       # OTP login with real email
 ├─ src/
 │  ├─ pages/                           # Page Object Model
 │  │  ├─ cart.page.ts
@@ -253,7 +257,7 @@ Two exported test objects plus a shared `expect`:
 
 `authenticatedTest` overrides `context` and `page` so each test still gets a **fresh browser context** seeded from the worker's storage state — session sharing, not context sharing.
 
-**Account pool** — `readUserPool()` builds a pool from committed test accounts plus numbered `AUTOMATION_EXERCISE_TEST_EMAIL_n` / `AUTOMATION_EXERCISE_TEST_PASSWORD_n` pairs read until the first missing pair. Assignment is `userPool[workerIndex % userPool.length]`, which is deterministic and requires no locking.
+**Account pool** — `readUserPool()` builds a pool from numbered `AUTOMATION_EXERCISE_TEST_EMAIL_n` / `AUTOMATION_EXERCISE_TEST_PASSWORD_n` pairs read until the first missing pair. Credentials live in `.env` only, never in source. Assignment is `userPool[workerIndex % userPool.length]`, which is deterministic and requires no locking. Add one pair per concurrent worker so workers never share an account.
 
 ### Page Objects
 
@@ -276,14 +280,15 @@ Conventions: `page` is injected through the constructor, locators are `readonly`
 
 `ApiClient` wraps `APIRequestContext` for the AutomationExercise REST API:
 
-| Method                           | Endpoint                    | Purpose                           |
-| -------------------------------- | --------------------------- | --------------------------------- |
-| `createAccount(userData)`        | `POST /api/createAccount`   | Provision missing pool accounts   |
-| `deleteAccount(email, password)` | `DELETE /api/deleteAccount` | Account cleanup                   |
-| `clearCart(cookies)`             | `POST /api/cart/clear`      | Cart reset with a cookie header   |
-| `fetch(options)`                 | any                         | Escape hatch for additional calls |
+| Method                           | Endpoint                               | Reference | Purpose                    |
+| -------------------------------- | -------------------------------------- | --------- | -------------------------- |
+| `createAccount(payload)`         | `POST /api/createAccount`              | API 11    | Register a user account    |
+| `deleteAccount(email, password)` | `DELETE /api/deleteAccount`            | API 12    | Delete a user account      |
+| `getUserDetailByEmail(email)`    | `GET /api/getUserDetailByEmail?email=` | API 14    | Fetch user detail by email |
 
-`createApiClient(request)` is the factory; pass `page.request` when the call must share the browser's cookies. Every method throws with status, status text, and body on failure.
+`createApiClient(request)` is the factory; pass `page.request` when the call must share the browser's cookies.
+
+The AutomationExercise API returns HTTP 200 for application-level failures, so `createAccount` aside, every method validates the `responseCode` in the body and throws with status, status text, and body when it is not the expected code.
 
 ### Data Factory — `src/data/test-user.factory.ts`
 
@@ -312,17 +317,27 @@ Conventions: `page` is injected through the constructor, locators are `readonly`
 
 ## Test Suites
 
-| Spec                                                    | Tests                  | Fixture             | Covers                                                                                                                                                                         |
-| ------------------------------------------------------- | ---------------------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `tests/auth/login.spec.ts`                              | 1                      | `test`              | Title check, login, `Delete Account` link visibility                                                                                                                           |
-| `tests/auth/google-oauth.smoke.spec.ts`                 | 1 `@smoke`             | `test`              | Real Google UI login to Mailosaur: email → password → consent → 2FA → callback                                                                                                 |
-| `tests/checkout/place-order.spec.ts`                    | 3                      | `authenticatedTest` | Place order with payment, invoice download, delivery = billing address                                                                                                         |
-| `tests/products/products-search-add.spec.ts`            | 5                      | `test`              | Search, add two products, remove products, quantity 2, totals = price × qty                                                                                                    |
-| `tests/products/search-verify-cart-after-login.spec.ts` | 1                      | `test`              | Search → add all → log in → cart persists                                                                                                                                      |
-| `tests/register/register.spec.ts`                       | 1 `@smoke` + 1 `fixme` | `test`              | Full registration; account deletion parked pending an isolated-account fixture                                                                                                 |
-| `tests/email/otp-mailosaur.spec.ts`                     | 1                      | `test`              | Real email OTP → secure area                                                                                                                                                   |
-| `tests/email/email-testing.spec.ts`                     | 20+                    | `test`              | Properties, HTML/text bodies, links, codes, attachments, images, send/reply/forward, deletion, time-range and multi-message search, unique address generation, end-to-end flow |
-| `tests/auth/oauth.spec.ts.skip`                         | 5 (skipped)            | `test`              | OAuth button presence, authorization-code redirect, token exchange, per-provider redirects                                                                                     |
+Tests are split by layer under `tests/`: `tests/ui-tests/` for browser specs and `tests/api-tests/` for REST specs.
+
+### UI Tests — `tests/ui-tests/`
+
+| Spec                                                       | Tests       | Fixture             | Covers                                                                                                                                      |
+| ---------------------------------------------------------- | ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `ui-tests/auth/login.spec.ts`                              | 1           | `test`              | Title check, login, `Delete Account` link visibility                                                                                        |
+| `ui-tests/auth/google-oauth.smoke.spec.ts`                 | 1 `@smoke`  | `test`              | Real Google UI login to Mailosaur: email → password → consent → 2FA → callback                                                              |
+| `ui-tests/auth/oauth.spec.ts.skip`                         | 5 (skipped) | `test`              | OAuth button presence, authorization-code redirect, token exchange, per-provider redirects                                                  |
+| `ui-tests/checkout/place-order.spec.ts`                    | 3           | `authenticatedTest` | Place order with payment, invoice download, delivery = billing address                                                                      |
+| `ui-tests/products/products-search-add.spec.ts`            | 5           | `test`              | Search, add two products, remove products, quantity 2, totals = price × qty                                                                 |
+| `ui-tests/products/search-verify-cart-after-login.spec.ts` | 1           | `test`              | Search → add all → log in → cart persists                                                                                                   |
+| `ui-tests/register/register.spec.ts`                       | 2           | `test`              | Full registration, plus deletion of a self-provisioned throwaway account (each test registers its own user, so the deletion is the cleanup) |
+
+### API Tests — `tests/api-tests/`
+
+| Spec                                      | Tests | Fixture | Covers                                                                                                                                                                         |
+| ----------------------------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `api-tests/accounts/user-account.spec.ts` | 5     | `test`  | API 11 create account, API 12 delete account, API 14 user detail by email, plus error paths                                                                                    |
+| `api-tests/email/otp-mailosaur.spec.ts`   | 1     | `test`  | Real email OTP → secure area                                                                                                                                                   |
+| `api-tests/email/email-testing.spec.ts`   | 20+   | `test`  | Properties, HTML/text bodies, links, codes, attachments, images, send/reply/forward, deletion, time-range and multi-message search, unique address generation, end-to-end flow |
 
 **Tags:** `@smoke` is used on the registration and Google OAuth specs (`npm run test:smoke`). `@regression`, `@slow`, `@visual`, and `@flaky-quarantine` are supported by convention but not yet applied.
 
@@ -408,13 +423,14 @@ On Windows use `copy .env.example .env`.
 npm test
 
 # One spec
-npx playwright test tests/checkout/place-order.spec.ts
+npx playwright test tests/ui-tests/checkout/place-order.spec.ts
 
 # One test by title
 npx playwright test -g "places an order"
 
-# Authenticated flow only
-npx playwright test tests/checkout --project=chromium
+# Layer only
+npx playwright test tests/ui-tests --project=chromium
+npx playwright test tests/api-tests --project=chromium
 
 # Tag-based
 npx playwright test --grep @smoke
