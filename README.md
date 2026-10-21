@@ -20,11 +20,13 @@ This repository is a complete, production-grade E2E framework: a page-object mod
   - [API Client](#api-client)
   - [Data Factory](#data-factory)
   - [Utilities](#utilities)
+  - [Logging](#logging)
 - [Test Suites](#test-suites)
 - [Environment Variables](#environment-variables)
 - [Getting Started](#getting-started)
 - [npm Scripts](#npm-scripts)
 - [Running Tests](#running-tests)
+- [Performance & Runtime](#performance--runtime)
 - [Code Quality](#code-quality)
 - [CI/CD Pipeline](#cicd-pipeline)
 - [Reporting & Artifacts](#reporting--artifacts)
@@ -54,8 +56,7 @@ This repository is a complete, production-grade E2E framework: a page-object mod
 - Automatic account provisioning via API when a pool user is missing
 - Deterministic worker → account assignment (no locks, safe by construction)
 - Real email verification with [Mailosaur](https://mailosaur.com) (OTP, links, codes, attachments, images)
-- RFC 6238 TOTP generation for 2FA flows (no external dependency)
-- OAuth 2.0 token exchange (Layer 1) and real Google UI smoke test (Layer 2)
+- Structured Winston logging with automatic secret redaction, and a lifecycle record for every executed test
 - Faker-driven test data factories
 - HTML + blob + JUnit + GitHub reporters, merged across shards
 
@@ -68,6 +69,7 @@ This repository is a complete, production-grade E2E framework: a page-object mod
 | Test runner    | `@playwright/test`                                          | `1.63.0` (pinned, no caret)         |
 | Language       | TypeScript                                                  | `ES2022` target, `commonjs`, strict |
 | Runtime        | Node.js                                                     | `22` (`.nvmrc`, `engines.node`)     |
+| Logging        | `winston` + `logform`                                       | `3.19.0` / `2.7.0`                  |
 | Email testing  | `mailosaur`                                                 | `11.1.1`                            |
 | Test data      | `@faker-js/faker`                                           | `10.6.0`                            |
 | Linting        | `eslint` + `typescript-eslint` + `eslint-plugin-playwright` | `10.10.0` / `8.70.0` / `2.12.0`     |
@@ -94,9 +96,15 @@ This repository is a complete, production-grade E2E framework: a page-object mod
    │            │             │              │
 ┌──▼──────┐ ┌───▼──────┐ ┌────▼───────┐ ┌────▼──────────────┐
 │ @pages  │ │ @api     │ │ @data      │ │ @utils            │
-│ POMM    │ │ API client│ │ faker bldrs│ │ mailosaur, totp,  │
-│         │ │          │ │            │ │ google-token      │
+│ POMM    │ │ API client│ │ faker bldrs│ │ mailosaur,        │
+│         │ │          │ │            │ │ logger            │
 └─────────┘ └──────────┘ └────────────┘ └───────────────────┘
+   ▲                                          │
+   │  test lifecycle records                  ▼
+┌──┴───────────────────┐            ┌─────────────────────────┐
+│ src/reporters/       │            │ src/utils/logger.ts     │
+│ logging-reporter.ts  │───────────▶│ Winston + redaction     │
+└──────────────────────┘            └─────────────────────────┘
 ```
 
 **Design rules enforced by the framework**
@@ -117,7 +125,6 @@ repo-root/
 │  ├─ ui-tests/                        # Browser-driven specs
 │  │  ├─ auth/
 │  │  │  ├─ login.spec.ts                 # Login + Delete Account visibility
-│  │  │  ├─ google-oauth.smoke.spec.ts    # Layer 2: real Google UI OAuth smoke
 │  │  │  └─ oauth.spec.ts.skip            # Disabled Layer 1/Layer 2 OAuth suite
 │  │  ├─ checkout/
 │  │  │  └─ place-order.spec.ts           # Order placement, invoice, addresses
@@ -150,10 +157,13 @@ repo-root/
 │  ├─ data/
 │  │  └─ test-user.factory.ts          # Faker builders + account pool
 │  ├─ utils/
-│  │  ├─ google-token.ts               # OAuth 2.0 refresh-token exchange
-│  │  ├─ mailosaur.ts                  # Email generation + polling
-│  │  └─ totp.ts                       # RFC 6238 TOTP generator
+│  │  ├─ logger.ts                     # Winston logger + secret redaction
+│  │  └─ mailosaur.ts                  # Email generation + polling
+│  ├─ reporters/
+│  │  └─ logging-reporter.ts           # Test lifecycle records (started/finished)
 │  └─ config/
+│     ├─ global-setup.ts               # Run-level logging
+│     ├─ global-teardown.ts            # Run-level logging + auth cleanup
 │     └─ load-env.ts                   # .env loader (Node 22+)
 ├─ .auth/                              # Per-worker storage state (gitignored)
 ├─ .github/
@@ -169,7 +179,7 @@ repo-root/
 └─ .env.example
 ```
 
-**Generated / ignored directories:** `test-results/`, `playwright-report/`, `blob-report/`, `.auth/`, `.playwright-mcp/`, `.claude/`, `.kilo/`
+**Generated / ignored directories:** `test-results/`, `playwright-report/`, `blob-report/`, `logs/`, `.auth/`, `.playwright-mcp/`, `.claude/`, `.kilo/`
 
 ---
 
@@ -192,6 +202,8 @@ repo-root/
 | `screenshot`     | `only-on-failure`                                        | Lightweight failure evidence                   |
 | `video`          | `retain-on-failure`                                      | Secondary artifact                             |
 | `baseURL`        | `BASE_URL` env, default `https://automationexercise.com` | Specs use relative paths only                  |
+| `globalSetup`    | `./src/config/global-setup.ts`                           | Brackets the run with a start record           |
+| `globalTeardown` | `./src/config/global-teardown.ts`                        | End record + `.auth/` cleanup                  |
 | `projects`       | `chromium` with `viewport: null`, `--start-maximized`    | Deterministic desktop rendering                |
 | `outputDir`      | `test-results/`                                          | Traces, videos, screenshots                    |
 
@@ -309,9 +321,55 @@ The AutomationExercise API returns HTTP 200 for application-level failures, so `
 - `waitForEmail(sentTo, timeout = 30_000, pollInterval = 2_000)` — polls until a message arrives; **only** an empty inbox (`notfound` / HTTP 404) is retryable, credential and server errors are rethrown immediately
 - `purgeMessages()` — clears the whole test inbox
 
-**`@utils/totp`** — dependency-free RFC 6238 TOTP: base32 decode → HMAC-SHA1 over an 8-byte time counter → dynamic truncation → zero-padded 6-digit code. Used for the 2FA step of the Google OAuth smoke test.
+### Logging — `src/utils/logger.ts`
 
-**`@utils/google-token`** — `getGoogleTokens()` performs a `grant_type=refresh_token` exchange against `https://oauth2.googleapis.com/token` in an isolated request context, accepting either the `GOOGLE_TEST_*` or `OAUTH_GOOGLE_*` variable names, and throws an actionable message when any are missing.
+A Winston logger with three outputs and automatic redaction.
+
+| Output  | Destination                   | Format                   | Notes                                             |
+| ------- | ----------------------------- | ------------------------ | ------------------------------------------------- |
+| Console | stdout (`stderr` for `error`) | colorized text           | Level from `LOG_CONSOLE_LEVEL`, `off` silences it |
+| File    | `logs/combined.log`           | one JSON object per line | Every record at `LOG_LEVEL` and above             |
+| File    | `logs/error.log`              | one JSON object per line | `error` records only                              |
+
+Files rotate at 10 MB with 5 generations kept, and the whole `logs/` directory is gitignored.
+
+**API** — `logger` is the shared instance; `logger.child({ ... })` returns a scoped logger whose bindings are merged into every record:
+
+```ts
+import { logger } from '@utils/logger';
+
+logger.info('cart checked out', { orderId: '123' });
+
+const log = logger.child({ component: 'api-client' });
+log.info('POST /api/createAccount', { payload });
+log.error('request failed', error, { status: 500 });
+```
+
+`@fixtures` exposes a `logger` fixture that is already scoped to the running test (spec file, test title, project, worker index, retry). The test lifecycle itself is written by `src/reporters/logging-reporter.ts`, a Playwright reporter that emits a `test started` / `test finished` record with the status, duration, and failure messages for **every** executed test. A `beforeEach` hook cannot be used for this: Playwright stops running the hooks of a worker once that worker loads a second spec file, which silently drops the records of the remaining tests in that worker. `src/config/global-setup.ts` and `src/config/global-teardown.ts` bracket the whole run.
+
+Records carry `source: 'reporter'` for the lifecycle entries written by the runner and `source: 'app'` for everything the test code writes, so a lifecycle record is never confused with an application record even though both share the same `runId`.
+
+Every lifecycle record carries a `testKey` (`<absolute spec file>::<describe titles> > <test title>`). The key is what pairs a `test started` record with its `test finished` record, independent of the order of the records in the file and of the worker that produced them.
+
+`npm run verify:lifecycle` (`scripts/verify-lifecycle.ts`) compares the JSON report with the log and fails when an executed test has no `test started` / `test finished` record, when a `test started` has no matching `test finished` (a worker that was killed mid-test), or when the run-level records are missing.
+
+Every run writes its own report, `test-results/results-<runId>.json`, and the log file is appended to across runs. The run id in the file name is what pairs the report with the records of that run in the log, so two runs that share the working directory can never be mixed up.
+
+```bash
+npm test
+npm run verify:lifecycle
+```
+
+**Redaction** (AGENT.md §21) happens in a Winston format, before any transport renders the record:
+
+- values under sensitive keys (`password`, `token`, `secret`, `apiKey`, `authorization`, `cookie`, `cvc`, `cardNumber`, `otp`, …) become `[REDACTED]`;
+- `Bearer`/`Basic` headers, `password=…`-style assignments, and secret query parameters are scrubbed from free text;
+- e-mail addresses are masked (`u***@example.com`);
+- `Error` objects are serialized as name, message, and stack.
+
+The framework's own metadata — the test title, path and key, the status, the worker, the duration — is written verbatim. Those values never contain a secret, and rewriting them would break the pairing of a `test started` record with its `test finished` record. A describe title such as "Basic Email Properties" therefore survives the free-text patterns, which would otherwise turn it into "Basic [REDACTED] Properties".
+
+Every record also carries `runId`, `pid`, and `worker` so parallel workers can be told apart in a shared log file.
 
 ---
 
@@ -324,7 +382,6 @@ Tests are split by layer under `tests/`: `tests/ui-tests/` for browser specs and
 | Spec                                                       | Tests       | Fixture             | Covers                                                                                                                                      |
 | ---------------------------------------------------------- | ----------- | ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ui-tests/auth/login.spec.ts`                              | 1           | `test`              | Title check, login, `Delete Account` link visibility                                                                                        |
-| `ui-tests/auth/google-oauth.smoke.spec.ts`                 | 1 `@smoke`  | `test`              | Real Google UI login to Mailosaur: email → password → consent → 2FA → callback                                                              |
 | `ui-tests/auth/oauth.spec.ts.skip`                         | 5 (skipped) | `test`              | OAuth button presence, authorization-code redirect, token exchange, per-provider redirects                                                  |
 | `ui-tests/checkout/place-order.spec.ts`                    | 3           | `authenticatedTest` | Place order with payment, invoice download, delivery = billing address                                                                      |
 | `ui-tests/products/products-search-add.spec.ts`            | 5           | `test`              | Search, add two products, remove products, quantity 2, totals = price × qty                                                                 |
@@ -337,9 +394,11 @@ Tests are split by layer under `tests/`: `tests/ui-tests/` for browser specs and
 | ----------------------------------------- | ----- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `api-tests/accounts/user-account.spec.ts` | 5     | `test`  | API 11 create account, API 12 delete account, API 14 user detail by email, plus error paths                                                                                    |
 | `api-tests/email/otp-mailosaur.spec.ts`   | 1     | `test`  | Real email OTP → secure area                                                                                                                                                   |
-| `api-tests/email/email-testing.spec.ts`   | 20+   | `test`  | Properties, HTML/text bodies, links, codes, attachments, images, send/reply/forward, deletion, time-range and multi-message search, unique address generation, end-to-end flow |
+| `api-tests/email/email-testing.spec.ts`   | 27    | `test`  | Properties, HTML/text bodies, links, codes, attachments, images, send/reply/forward, deletion, time-range and multi-message search, unique address generation, end-to-end flow |
 
-**Tags:** `@smoke` is used on the registration and Google OAuth specs (`npm run test:smoke`). `@regression`, `@slow`, `@visual`, and `@flaky-quarantine` are supported by convention but not yet applied.
+**Total: 45 executed tests** (12 UI + 33 API) in a clean run.
+
+**Tags:** no test currently carries a tag. `@smoke`, `@regression`, `@slow`, `@visual`, and `@flaky-quarantine` are supported by convention but not yet applied, so `npm run test:smoke` currently matches nothing.
 
 `email-testing.spec.ts` conditionally registers its send/reply/forward groups only when `MAILOSAUR_VERIFIED_EMAIL` is set, since Mailosaur requires a verified sender.
 
@@ -349,22 +408,19 @@ Tests are split by layer under `tests/`: `tests/ui-tests/` for browser specs and
 
 Copy `.env.example` to `.env` and fill in the values. `.env` is gitignored; `.env.example` is committed with names only.
 
-| Variable                                 | Required by                            | Purpose                                                   |
-| ---------------------------------------- | -------------------------------------- | --------------------------------------------------------- |
-| `BASE_URL`                               | config                                 | Target site; defaults to `https://automationexercise.com` |
-| `AUTOMATION_EXERCISE_TEST_EMAIL_1..4`    | account pool                           | Pooled worker accounts                                    |
-| `AUTOMATION_EXERCISE_TEST_PASSWORD_1..4` | account pool                           | Matching passwords                                        |
-| `MAILOSAUR_API_KEY`                      | `@utils/mailosaur`, `EmailTestingPage` | Mailosaur API key                                         |
-| `MAILOSAUR_SERVER_ID`                    | `@utils/mailosaur`, `EmailTestingPage` | Mailosaur test server id                                  |
-| `MAILOSAUR_VERIFIED_EMAIL`               | optional                               | Enables send/reply/forward email tests                    |
-| `GOOGLE_TEST_CLIENT_ID`                  | `@utils/google-token`                  | OAuth 2.0 Layer 1                                         |
-| `GOOGLE_TEST_CLIENT_SECRET`              | `@utils/google-token`                  | OAuth 2.0 Layer 1                                         |
-| `GOOGLE_TEST_REFRESH_TOKEN`              | `@utils/google-token`                  | OAuth 2.0 Layer 1                                         |
-| `GOOGLE_TEST_EMAIL`                      | Google OAuth smoke                     | Layer 2 Google account                                    |
-| `GOOGLE_TEST_PASSWORD`                   | Google OAuth smoke                     | Layer 2 Google account                                    |
-| `GOOGLE_TEST_OTP_SECRET`                 | Google OAuth smoke                     | Base32 TOTP secret for 2FA                                |
-
-Legacy fallbacks `OAUTH_GOOGLE_CLIENT_ID`, `OAUTH_GOOGLE_CLIENT_SECRET`, `OAUTH_GOOGLE_REFRESH_TOKEN`, `OAUTH_GOOGLE_USERNAME`, and `OAUTH_GOOGLE_PASSWORD` are still honoured.
+| Variable                                 | Required by                            | Purpose                                                                     |
+| ---------------------------------------- | -------------------------------------- | --------------------------------------------------------------------------- |
+| `BASE_URL`                               | config                                 | Target site; defaults to `https://automationexercise.com`                   |
+| `AUTOMATION_EXERCISE_TEST_EMAIL_1..4`    | account pool                           | Pooled worker accounts                                                      |
+| `AUTOMATION_EXERCISE_TEST_PASSWORD_1..4` | account pool                           | Matching passwords                                                          |
+| `MAILOSAUR_API_KEY`                      | `@utils/mailosaur`, `EmailTestingPage` | Mailosaur API key                                                           |
+| `MAILOSAUR_SERVER_ID`                    | `@utils/mailosaur`, `EmailTestingPage` | Mailosaur test server id                                                    |
+| `MAILOSAUR_VERIFIED_EMAIL`               | optional                               | Enables send/reply/forward email tests                                      |
+| `LOG_LEVEL`                              | `@utils/logger`                        | File log level: `error`, `warn`, `info`, `debug`                            |
+| `LOG_CONSOLE_LEVEL`                      | `@utils/logger`                        | Console level, or `off` to silence console output                           |
+| `LOG_DIR`                                | `@utils/logger`                        | Directory for `combined.log` and `error.log`                                |
+| `LOG_TO_FILE`                            | `@utils/logger`                        | `false` disables the log files                                              |
+| `PW_WORKERS`                             | config                                 | Local worker count; defaults to `2` (override with `PW_WORKERS=4 npm test`) |
 
 `readUserPool()` throws a clear error when an email is present without its password, or when the pool would be empty.
 
@@ -398,19 +454,20 @@ On Windows use `copy .env.example .env`.
 
 ## npm Scripts
 
-| Script                 | Command                         | Purpose                   |
-| ---------------------- | ------------------------------- | ------------------------- |
-| `npm test`             | `playwright test`               | Run the suite             |
-| `npm run test:headed`  | `playwright test --headed`      | Watch the browser         |
-| `npm run test:ui`      | `playwright test --ui`          | Interactive UI mode       |
-| `npm run test:smoke`   | `playwright test --grep @smoke` | Smoke subset              |
-| `npm run test:debug`   | `playwright test --debug`       | Inspector step-through    |
-| `npm run report`       | `playwright show-report`        | Open the HTML report      |
-| `npm run lint`         | `eslint .`                      | ESLint over the repo      |
-| `npm run format`       | `prettier --write .`            | Format                    |
-| `npm run format:check` | `prettier --check .`            | Format check (used in CI) |
-| `npm run typecheck`    | `tsc --noEmit`                  | Type check                |
-| `npm run prepare`      | `husky install`                 | Install git hooks         |
+| Script                     | Command                            | Purpose                                        |
+| -------------------------- | ---------------------------------- | ---------------------------------------------- |
+| `npm test`                 | `playwright test`                  | Run the suite                                  |
+| `npm run test:headed`      | `playwright test --headed`         | Watch the browser                              |
+| `npm run test:ui`          | `playwright test --ui`             | Interactive UI mode                            |
+| `npm run test:smoke`       | `playwright test --grep @smoke`    | Smoke subset                                   |
+| `npm run test:debug`       | `playwright test --debug`          | Inspector step-through                         |
+| `npm run verify:lifecycle` | `jiti scripts/verify-lifecycle.ts` | Check that every executed test has log records |
+| `npm run report`           | `playwright show-report`           | Open the HTML report                           |
+| `npm run lint`             | `eslint .`                         | ESLint over the repo                           |
+| `npm run format`           | `prettier --write .`               | Format                                         |
+| `npm run format:check`     | `prettier --check .`               | Format check (used in CI)                      |
+| `npm run typecheck`        | `tsc --noEmit`                     | Type check                                     |
+| `npm run prepare`          | `husky install`                    | Install git hooks                              |
 
 `lint-staged` runs `eslint --fix` and `prettier --write` on staged `*.{ts,tsx,js,jsx,json,md,css,html}` files.
 
@@ -441,6 +498,52 @@ npx playwright test --repeat-each=10
 
 # Static-only verification (no browser)
 npx playwright test --list
+
+# Check that every executed test produced a start and a finish log record
+npm run verify:lifecycle
+```
+
+---
+
+## Performance & Runtime
+
+**Reference machine** — Intel Core i3-3110M @ 2.4 GHz, **2 physical cores / 4 logical processors** (hyper-threading), 7.8 GB RAM, Node 22.
+
+### Worker count
+
+`playwright.config.ts` uses `workers: Number(process.env.PW_WORKERS ?? 2)` locally and `50%` in CI. One worker drives one Chromium instance _and_ a Node process, so the useful ceiling is the number of **physical** cores, not logical processors — hyper-threading adds no browser capacity.
+
+| Workers | Result on the reference machine                                                                            |
+| ------- | ---------------------------------------------------------------------------------------------------------- |
+| 2       | 45/45 passed in 6.4 min                                                                                    |
+| 3       | Not measured; the only sensible step above 2 (`PW_WORKERS=3 npm test`)                                     |
+| 4       | Browser starvation: `Tearing down "context" exceeded the test timeout`, `browserContext.close: Test ended` |
+
+With 4 workers, 4 Chromium instances and 4 Node workers compete for 2 physical cores at 2.4 GHz. The browsers become slow enough that Playwright's own teardown exceeds the test timeout, which is reported as a test failure even though the application under test is fine. Do not raise the worker count above the physical core count.
+
+### Why a full run takes ~6.5 minutes
+
+The suite is **network-bound, not CPU-bound**: almost every test waits on the live site or on Mailosaur, so the workers are idle most of the time and extra workers buy little.
+
+| Metric                                           | Value                       |
+| ------------------------------------------------ | --------------------------- |
+| Sum of the 45 test durations (the serial cost)   | 701 s (11.7 min)            |
+| Wall clock with 2 workers                        | 385 s (6.4 min)             |
+| Parallel speedup                                 | 1.82x (near the 2x ceiling) |
+| Share of the total taken by the 12 slowest tests | ~10.6 min of the 11.7 min   |
+
+The slowest tests are the Mailosaur specs, which poll the mail server on a fixed interval, and the checkout spec, which waits for the live site. Their cost is per-test latency, so the only ways to shorten the run are fewer polling intervals (a behavioural change) or a faster target site — not more workers.
+
+Per-test timings are in the log: every `test finished` record carries `durationMs`.
+
+### Reading a run
+
+```bash
+# The slowest tests of the last run
+node -e "const l=require('fs').readFileSync('logs/combined.log','utf8').trim().split('\n').map(JSON.parse).filter(r=>r.message==='test finished'&&r.context.testKey);l.sort((a,b)=>b.context.durationMs-a.context.durationMs).forEach(r=>console.log(String(r.context.durationMs).padStart(7),r.context.testTitle))"
+
+# Every test of the run, with its status
+npm run verify:lifecycle
 ```
 
 ---
@@ -479,9 +582,10 @@ Boundary rule: specs may not import `test`/`expect` from `@playwright/test`.
 - `needs: quality`, so a lint failure never burns browser minutes
 - `npm ci` → `npx playwright install --with-deps chromium` (no browser caching)
 - `npx playwright test --shard=<n>/4`
+- `npm run verify:lifecycle` — fails the shard when an executed test has no lifecycle record
 - Secrets injected from the GitHub secret store (pool credentials + Mailosaur)
 - `BASE_URL` set from workflow-level `env`
-- Uploads on every run, including cancellation: shard HTML report, `test-results/` + `blob-report/`, and `results.xml` (7-day retention)
+- Uploads on every run, including cancellation: shard HTML report, `test-results/` + `blob-report/`, `results.xml`, and the Winston `logs/` directory (7-day retention)
 
 **Job 3 — `merge-reports`**
 Downloads shard artifacts, flattens the `blob-report/*.zip` files, runs `npx playwright merge-reports blob-reports --reporter html,junit` with `PLAYWRIGHT_JUNIT_OUTPUT_NAME=merged-results.xml`, and publishes the merged HTML report and JUnit XML.
@@ -492,16 +596,20 @@ Downloads shard artifacts, flattens the `blob-report/*.zip` files, runs `npx pla
 
 ## Reporting & Artifacts
 
-| Reporter | Local                | CI                                                        |
-| -------- | -------------------- | --------------------------------------------------------- |
-| `html`   | `open: 'on-failure'` | `open: 'never'`, merged at the end                        |
-| `list`   | ✅                   | —                                                         |
-| `blob`   | —                    | per shard, merged by `merge-reports`                      |
-| `github` | —                    | per-shard inline annotations                              |
-| `junit`  | —                    | `results.xml` per shard, `merged-results.xml` after merge |
-| `line`   | —                    | ✅                                                        |
+| Reporter           | Local                               | CI                                                        |
+| ------------------ | ----------------------------------- | --------------------------------------------------------- |
+| `html`             | `open: 'on-failure'`                | `open: 'never'`, merged at the end                        |
+| `list`             | ✅                                  | —                                                         |
+| `blob`             | —                                   | per shard, merged by `merge-reports`                      |
+| `github`           | —                                   | per-shard inline annotations                              |
+| `junit`            | —                                   | `results.xml` per shard, `merged-results.xml` after merge |
+| `line`             | —                                   | ✅                                                        |
+| `json`             | `test-results/results-<runId>.json` | `test-results/results-<runId>.json` per shard             |
+| `logging-reporter` | ✅                                  | ✅ (writes the test lifecycle to `logs/`)                 |
 
-Artifacts live in `test-results/` (traces, screenshots, video) and `playwright-report/`. Traces and videos are the primary debugging material for a CI failure — read the trace instead of adding waits.
+Artifacts live in `test-results/` (traces, screenshots, video, `results-<runId>.json`) and `playwright-report/`. Traces and videos are the primary debugging material for a CI failure — read the trace instead of adding waits.
+
+Winston writes `logs/combined.log` and `logs/error.log` (JSON lines) next to the other artifacts; every record is redacted before it is written.
 
 ---
 
@@ -628,6 +736,14 @@ Typecheck and the full suite run in CI, not in the hook.
 
 **The generated Mailosaur address is rejected by the site** — the `@=` prefix bug is already corrected in `generateEmailAddress()`; if you build addresses elsewhere, apply the same `@=` → `@` rewrite.
 
+**`Project(s) "chromium" not found. Available projects: ""`** — Playwright did not load `playwright.config.ts`. The usual cause is running the command from a subdirectory: Playwright looks for the config in the current working directory only. Run it from the repository root, or point at the config explicitly with `--config="<repo>\playwright.config.ts"`.
+
+**`ENOENT: no such file or directory, stat '<repo>\chromium'`** — the path aliases were registered with `tsconfig-paths/register` without arguments, and that helper reads the `--project` flag from `process.argv` and uses it as the directory that holds the tsconfig. `playwright.config.ts` therefore calls `register({ cwd: __dirname })` with an explicit cwd, which keeps the tsconfig.json as the single source of truth and makes `--project` usable again.
+
 **`test.only` runs locally but not in CI** — expected. `forbidOnly: !!process.env.CI` rejects it in CI; remove the `.only`.
+
+**`locator.click: Timeout 30000ms exceeded` on `#btn-send-otp`** — the live OTP site (`practice.expandtesting.com`) stalls on the "Send OTP Code" button when it is hit by several workers at once. The click itself succeeds; Playwright waits for the scheduled navigation that never arrives. This is site-side flakiness, not an application defect: the same test passes in 15 s when it is run on its own. Re-run the failed test before changing the code.
+
+**A test is missing from the log** — run `npm run verify:lifecycle`. It names the test and the missing record. The usual cause is a worker that was killed mid-test; the `test started` record is then present without its `test finished` record.
 
 **Stale auth files after a crash** — an aborted run can leave `.auth/worker-*.json` behind. The `workerAuthFile` fixture deletes its own file in teardown, and the exported `globalTeardown()` clears the directory; on a hard crash, delete `.auth/` manually.

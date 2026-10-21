@@ -344,9 +344,13 @@ test.describe('Mailosaur Email Testing', () => {
       await otpLoginPage.enterEmailAndSend(emailAddress);
       await waitForEmail(emailAddress);
 
-      await emailTestingPage.deleteAllEmails();
+      // The mailbox is shared by the whole suite, so only the messages of this
+      // test are deleted. Purging the server would take the messages of the
+      // tests that run in parallel with it with it.
+      const deleted = await emailTestingPage.deleteEmailsFor(emailAddress);
+      expect(deleted).toBeGreaterThan(0);
 
-      const messages = await emailTestingPage.listEmails();
+      const messages = await emailTestingPage.searchEmails({ sentTo: emailAddress }, 0, 100);
       expect(messages).toHaveLength(0);
     });
   });

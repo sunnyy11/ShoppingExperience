@@ -1,6 +1,7 @@
 import { type Page, expect } from '@playwright/test';
 import MailosaurClient from 'mailosaur';
 import type { Message, SearchCriteria, Attachment } from 'mailosaur';
+import { waitForMessage } from '@utils/mailosaur';
 
 export interface EmailTestData {
   emailAddress: string;
@@ -78,38 +79,10 @@ export class EmailTestingPage {
   async waitForEmail(
     sentTo: string,
     criteria?: Partial<SearchCriteria>,
-    timeout = 30_000,
+    timeout = 60_000,
     pollInterval = 2_000,
   ): Promise<Message> {
-    const client = this.getClient();
-    const serverId = this.getServerId();
-    const deadline = Date.now() + timeout;
-
-    const searchCriteria: SearchCriteria = {
-      sentTo,
-      ...criteria,
-    };
-
-    while (Date.now() < deadline) {
-      try {
-        const message = await client.messages.get(serverId, searchCriteria);
-        if (message) return message;
-      } catch (error) {
-        const statusCode = (error as { httpStatusCode?: number }).httpStatusCode;
-        const errorType = (error as { errorType?: string }).errorType;
-
-        if (errorType !== 'notfound' && statusCode !== 404) {
-          throw new Error(
-            `Mailosaur request failed (${errorType ?? 'unknown'}, HTTP ${statusCode ?? 'n/a'}): ${
-              (error as Error).message
-            }`,
-          );
-        }
-      }
-      await new Promise((resolve) => setTimeout(resolve, pollInterval));
-    }
-
-    throw new Error(`Email to ${sentTo} not received within ${timeout}ms`);
+    return waitForMessage({ sentTo, criteria, timeout, pollInterval });
   }
 
   async getEmailById(messageId: string): Promise<Message> {
@@ -174,6 +147,24 @@ export class EmailTestingPage {
     const client = this.getClient();
     const serverId = this.getServerId();
     await client.messages.deleteAll(serverId);
+  }
+
+  /**
+   * Deletes every message that was sent to one address. The mailbox is shared
+   * by the whole suite, so deleting all messages of the server would take the
+   * messages of the tests that run in parallel with this one with it.
+   */
+  async deleteEmailsFor(sentTo: string): Promise<number> {
+    const client = this.getClient();
+    const messages = await this.searchEmails({ sentTo }, 0, 100);
+
+    for (const message of messages) {
+      if (message.id) {
+        await client.messages.del(message.id);
+      }
+    }
+
+    return messages.length;
   }
 
   async downloadAttachment(attachmentId: string): Promise<Buffer> {
@@ -347,7 +338,7 @@ export class EmailTestingPage {
   async waitForEmailWithTimeRange(
     sentTo: string,
     receivedAfter: Date,
-    timeout = 30_000,
+    timeout = 60_000,
     pollInterval = 2_000,
   ): Promise<Message> {
     return this.waitForEmail(

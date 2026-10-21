@@ -9,6 +9,7 @@
     "test:ui": "playwright test --ui",
     "test:smoke": "playwright test --grep @smoke",
     "test:debug": "playwright test --debug",
+    "verify:lifecycle": "jiti scripts/verify-lifecycle.ts",
     "report": "playwright show-report",
     "lint": "eslint .",
     "format": "prettier --write .",
@@ -38,7 +39,9 @@
     "tsconfig-paths": "^4.2.0"
   },
   "dependencies": {
-    "mailosaur": "11.1.1"
+    "logform": "2.7.0",
+    "mailosaur": "11.1.1",
+    "winston": "3.19.0"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,md,css,html}": [

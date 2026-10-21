@@ -75,6 +75,10 @@ jobs:
       - name: Run E2E tests
         run: npx playwright test --shard=${{ matrix.shard }}/4
 
+      - name: Verify test lifecycle records
+        if: always()
+        run: npm run verify:lifecycle
+
       - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
@@ -99,6 +103,14 @@ jobs:
         with:
           name: junit-results-shard-${{ matrix.shard }}
           path: results.xml
+          retention-days: 7
+
+      - name: Upload Winston logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: logs-shard-${{ matrix.shard }}
+          path: logs/
           retention-days: 7
 
   merge-reports:
