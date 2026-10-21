@@ -268,6 +268,7 @@ const CONSOLE_HIDDEN_KEYS: ReadonlySet<string> = new Set([
   'timeoutms',
   'expectedstatus',
   'error',
+  'quiet',
 ]);
 
 const CONSOLE_KEY_ALIASES: Readonly<Record<string, string>> = {
@@ -297,6 +298,10 @@ function formatConsoleValue(key: string, value: unknown): string | undefined {
 
   if (normalized === 'retry' && Number(value) === 0) {
     return undefined;
+  }
+  if (normalized === 'errors' && Array.isArray(value)) {
+    const first = String(value[0]).split('\n')[0] ?? '';
+    return JSON.stringify(`${value.length}x ${truncate(first)}`);
   }
   if (normalized === 'durationms' && Number.isFinite(Number(value))) {
     return `${(Number(value) / 1000).toFixed(1)}s`;
@@ -376,10 +381,22 @@ function buildPrettyConsoleFormat(): Format {
   });
 }
 
+/**
+ * Drops records that were logged with `quiet: true` from the console. They
+ * still reach the log files, which use their own format.
+ */
+const dropQuietRecords: Format = format((info) => {
+  const context = info.context as LogContext | undefined;
+  return context?.quiet === true ? false : info;
+})();
+
 function buildConsoleFormat(): Format {
-  return process.env.LOG_CONSOLE_FORMAT?.trim().toLowerCase() === 'json'
-    ? format.json()
-    : buildPrettyConsoleFormat();
+  const output =
+    process.env.LOG_CONSOLE_FORMAT?.trim().toLowerCase() === 'json'
+      ? format.json()
+      : buildPrettyConsoleFormat();
+
+  return format.combine(dropQuietRecords, output);
 }
 
 function resolveLevel(value: string | undefined, fallback: LogLevel): LogLevel {

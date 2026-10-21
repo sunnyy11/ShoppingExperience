@@ -21,6 +21,12 @@ interface TestIdentity {
   timeoutMs: number;
 }
 
+const ANSI_PATTERN = /\u001b\[[0-9;]*m/g;
+
+function stripAnsi(text: string): string {
+  return text.replace(ANSI_PATTERN, '');
+}
+
 function normalizePath(filePath: string): string {
   return filePath.split(sep).join('/');
 }
@@ -68,28 +74,37 @@ function buildIdentity(test: TestCase, result: TestResult): TestIdentity {
  */
 class LoggingReporter implements Reporter {
   onTestBegin(test: TestCase, result: TestResult): void {
+    // `quiet` keeps the record in the log files but off the console, where
+    // Playwright's own reporter already shows the progress of every test.
     this.write(
       'info',
       {
         ...buildIdentity(test, result),
         source: 'reporter',
+        quiet: true,
       },
       'test started',
     );
   }
 
   onTestEnd(test: TestCase, result: TestResult): void {
+    const unexpected = result.status !== test.expectedStatus && result.status !== 'skipped';
+
+    // Every result is written to the log files. Only an unexpected result is
+    // shown on the console, and it is logged as an error so that it also
+    // lands in error.log.
     this.write(
-      'info',
+      unexpected ? 'error' : 'info',
       {
         ...buildIdentity(test, result),
         source: 'reporter',
+        quiet: !unexpected,
         status: result.status,
         expectedStatus: test.expectedStatus,
         durationMs: result.duration,
-        errors: result.errors.map((error) => error.message ?? String(error)),
+        errors: result.errors.map((error) => stripAnsi(error.message ?? String(error))),
       },
-      'test finished',
+      unexpected ? 'test failed' : 'test finished',
     );
   }
 

@@ -205,6 +205,18 @@ function selectRunRecords(records: LogRecord[], runId: string | undefined): LogR
   return records.filter((record) => record.context?.runId === effectiveRunId);
 }
 
+function isStartRecord(record: LogRecord): boolean {
+  return record.message === 'test started';
+}
+
+/**
+ * A test that did not end as expected is written as "test failed", so both
+ * messages close the lifecycle of a test.
+ */
+function isFinishRecord(record: LogRecord): boolean {
+  return record.message === 'test finished' || record.message === 'test failed';
+}
+
 function toLogEntry(record: LogRecord): LogEntry | undefined {
   const context = record.context ?? {};
   const key = context.testKey;
@@ -249,7 +261,7 @@ function main(): void {
   const finished = new Map<string, LogEntry[]>();
 
   for (const record of logRecords) {
-    if (record.message !== 'test started' && record.message !== 'test finished') {
+    if (!isStartRecord(record) && !isFinishRecord(record)) {
       continue;
     }
 
@@ -258,7 +270,7 @@ function main(): void {
       continue;
     }
 
-    const target = record.message === 'test started' ? started : finished;
+    const target = isStartRecord(record) ? started : finished;
     const bucket = target.get(entry.key);
     if (bucket) {
       bucket.push(entry);
